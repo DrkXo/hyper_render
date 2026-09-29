@@ -1739,6 +1739,57 @@ class RenderHyperBox extends RenderBox
     }).toList();
   }
 
+  /// Serialize the fragments of every laid-out line, in layout order.
+  ///
+  /// [debugFragments] reports the tokenizer output. When a text node wraps, the
+  /// pieces it was split into are new fragments that the layout positions but
+  /// never adds back to the tokenizer's list, so [debugFragments] reports the
+  /// original fragment — unpositioned — for text that was in fact laid out and
+  /// painted. This method walks the lines instead, so every entry carries the
+  /// position the renderer actually used and the [Fragment.globalOffset] that
+  /// the selection and IME character space already works in.
+  ///
+  /// Character ranges are non-contiguous by design. Whitespace trimmed at a
+  /// wrap belongs to no fragment, so a range may land in a gap and correctly
+  /// have no rect. Consumers must tolerate gaps rather than assume that one
+  /// fragment's `charEnd` is the next fragment's `charStart`.
+  ///
+  /// This also exposes two fragment fields that [debugFragments] omits:
+  /// [Fragment.rubyText], the reading drawn above the base text, which differs
+  /// from the base characters in content and in length; and
+  /// [Fragment.ellipsisVisibleLength], the clamp limiting how much of a
+  /// truncated fragment reached the screen. Without the latter a consumer cannot
+  /// tell that the remaining characters were never painted.
+  List<Map<String, dynamic>> debugLineFragments() {
+    final result = <Map<String, dynamic>>[];
+    for (var lineIndex = 0; lineIndex < _lines.length; lineIndex++) {
+      final line = _lines[lineIndex];
+      for (final fragment in line.fragments) {
+        final rect = fragment.rect;
+        if (rect == null) continue;
+        final text = fragment.text;
+        result.add(<String, dynamic>{
+          'type': fragment.type.name,
+          'text': text,
+          'rubyText': fragment.rubyText,
+          'charStart': fragment.globalOffset,
+          'charEnd': fragment.globalOffset + (text?.length ?? 0),
+          'ellipsisVisibleLength': fragment.ellipsisVisibleLength,
+          'lineIndex': lineIndex,
+          'lineTop': line.top,
+          'lineHeight': line.height,
+          'offsetX': rect.left,
+          'offsetY': rect.top,
+          'width': rect.width,
+          'height': rect.height,
+          'nodeId': fragment.sourceNode.id,
+          'nodeTag': fragment.sourceNode.tagName,
+        });
+      }
+    }
+    return result;
+  }
+
   Map<String, dynamic> _serializeNode(UDTNode node) {
     return {
       'id': node.id,
