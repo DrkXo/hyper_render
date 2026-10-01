@@ -1840,9 +1840,9 @@ class RenderHyperBox extends RenderBox
                 final fragmentOffset = fragment.offset ?? Offset.zero;
                 currentLineRects.add(Rect.fromLTWH(
                   fragmentOffset.dx,
-                  fragmentOffset.dy,
+                  line.top,
                   fragment.width,
-                  fragment.height,
+                  line.height,
                 ));
               } else {
                 final painter =
@@ -1860,9 +1860,9 @@ class RenderHyperBox extends RenderBox
                   if (box.right <= box.left) continue;
                   currentLineRects.add(Rect.fromLTRB(
                     fragmentOffset.dx + box.left,
-                    fragmentOffset.dy + box.top,
+                    line.top,
                     fragmentOffset.dx + box.right,
-                    fragmentOffset.dy + box.bottom,
+                    line.top + line.height,
                   ));
                 }
               }
