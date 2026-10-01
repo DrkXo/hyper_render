@@ -494,6 +494,14 @@ class StyleResolver {
               if (argText.isNotEmpty) {
                 parts.add('${expr.text}($argText');
               }
+            } else if (expr is css_ast.VarUsage) {
+              // Same span quirk: csslib parses var() as a VarUsage whose
+              // span is only "--name)" / "--name, fallback)". Without the
+              // "var(" prefix _resolveCssValue never recognised it, so every
+              // var() in a stylesheet (<style>, customCss) resolved to
+              // nothing — only inline style="" (a separate parser) worked.
+              final argText = expr.span?.text ?? '';
+              if (argText.isNotEmpty) parts.add('var($argText');
             } else {
               final text = expr.span?.text ?? '';
               if (text.isNotEmpty) parts.add(text);
