@@ -12,7 +12,8 @@ RenderHyperBox? _findBox(RenderObject? root) {
   return found;
 }
 
-Future<RenderHyperBox> _pump(WidgetTester tester, DocumentNode document, {double width = 300}) async {
+Future<RenderHyperBox> _pump(WidgetTester tester, DocumentNode document,
+    {double width = 300}) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -31,12 +32,14 @@ Future<RenderHyperBox> _pump(WidgetTester tester, DocumentNode document, {double
   return box!;
 }
 
-DocumentNode _paragraph(String text) =>
-    DocumentNode(children: [BlockNode.p(children: [TextNode(text)])]);
+DocumentNode _paragraph(String text) => DocumentNode(children: [
+      BlockNode.p(children: [TextNode(text)])
+    ]);
 
 void main() {
   group('RenderHyperBox.getBoxesForCharRange', () {
-    testWidgets('returns empty list for inverted or invalid ranges', (tester) async {
+    testWidgets('returns empty list for inverted or invalid ranges',
+        (tester) async {
       final box = await _pump(tester, _paragraph(_sampleText));
       expect(box.getBoxesForCharRange(10, 5), isEmpty);
       expect(box.getBoxesForCharRange(5, 5), isEmpty);
@@ -53,7 +56,8 @@ void main() {
       expect(rect.left, greaterThan(0.0));
     });
 
-    testWidgets('returns contiguous boxes across multiple words on single line', (tester) async {
+    testWidgets('returns contiguous boxes across multiple words on single line',
+        (tester) async {
       final box = await _pump(tester, _paragraph(_sampleText), width: 600);
       // "The quick brown" at 0..15
       final rects = box.getBoxesForCharRange(0, 15);
@@ -62,12 +66,42 @@ void main() {
       expect(rects.first.width, greaterThan(50.0));
     });
 
+    testWidgets(
+        'merges mixed-styled inline fragments into a single contiguous rect on the same line',
+        (tester) async {
+      // Document with normal text followed by a bold span and normal text on one line:
+      // "Hello " (normal) + "world" (bold) + " again" (normal)
+      final doc = DocumentNode(children: [
+        BlockNode.p(children: [
+          TextNode('Hello '),
+          InlineNode.strong(
+            children: [TextNode('world')],
+          ),
+          TextNode(' again'),
+        ]),
+      ]);
+
+      final box = await _pump(tester, doc, width: 600);
+      // Range 0..17 covers "Hello world again"
+      final rects = box.getBoxesForCharRange(0, 17);
+      expect(
+        rects,
+        hasLength(1),
+        reason:
+            'mixed-styled fragments on the same line must merge into a single seamless line highlight',
+      );
+      expect(rects.first.left, closeTo(0.0, 2.0));
+      expect(rects.first.top, closeTo(16.0, 4.0));
+      expect(rects.first.width, greaterThan(200.0));
+    });
+
     testWidgets('returns boxes across lines when range wraps', (tester) async {
       // Narrow container forces wrapping
       final box = await _pump(tester, _paragraph(_sampleText), width: 120);
       // Full sentence range 0..43
       final rects = box.getBoxesForCharRange(0, _sampleText.length);
-      expect(rects.length, greaterThan(1), reason: 'should produce rects per line');
+      expect(rects.length, greaterThan(1),
+          reason: 'should produce rects per line');
     });
   });
 }

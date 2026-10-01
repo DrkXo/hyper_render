@@ -1870,11 +1870,15 @@ class RenderHyperBox extends RenderBox
             final isPreformatted =
                 ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
             if (!isPreformatted) {
-              while (visualStart < visualEnd && text[visualStart] == ' ') {
-                visualStart++;
+              if (fragmentStart <= charStart) {
+                while (visualStart < visualEnd && text[visualStart] == ' ') {
+                  visualStart++;
+                }
               }
-              while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-                visualEnd--;
+              if (fragmentEnd >= charEnd) {
+                while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
+                  visualEnd--;
+                }
               }
             }
 
@@ -1919,11 +1923,10 @@ class RenderHyperBox extends RenderBox
       // Merge horizontally contiguous rects on the same line
       currentLineRects.sort((a, b) => a.left.compareTo(b.left));
       Rect current = currentLineRects.first;
+      final maxGap = math.max(16.0, line.height);
       for (var i = 1; i < currentLineRects.length; i++) {
         final next = currentLineRects[i];
-        if (next.left <= current.right + 2.0 &&
-            (next.top - current.top).abs() <= 3.0 &&
-            (next.bottom - current.bottom).abs() <= 3.0) {
+        if (next.left <= current.right + maxGap) {
           current = Rect.fromLTRB(
             current.left,
             math.min(current.top, next.top),
