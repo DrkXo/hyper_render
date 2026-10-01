@@ -1,5 +1,13 @@
 # Changelog — hyper_render_core
 
+## Unreleased (1.10.0)
+
+### 🆕 New
+
+- **`HyperRenderDebugHooks.onFrameTiming`** — reports each `RenderHyperBox` layout and paint duration in microseconds. Paint is canvas recording time, not raster. It only runs in debug mode and only while the hook is set.
+- **`HyperRenderDebugHooks.onSelectionChanged`** — reports a renderer's selection range when it changes.
+- `RenderHyperBox.debugFragments()` now also includes `globalOffset`, `charLength`, `rubyText` and `rubyHeight`.
+
 ## 1.9.0
 
 ### 🆕 New

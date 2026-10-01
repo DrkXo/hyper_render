@@ -16,6 +16,8 @@ import '../model/node.dart';
 /// HyperRenderDebugHooks.onRendererAttached = (id, getDoc) { ... };
 /// HyperRenderDebugHooks.onRendererDetached = (id) { ... };
 /// HyperRenderDebugHooks.onLayoutComplete   = (id, getFrags, getLines) { ... };
+/// HyperRenderDebugHooks.onFrameTiming      = (id, phase, micros) { ... };
+/// HyperRenderDebugHooks.onSelectionChanged = (id, start, end) { ... };
 /// ```
 abstract final class HyperRenderDebugHooks {
   /// Called when a [RenderHyperBox] is attached to the pipeline.
@@ -47,11 +49,27 @@ abstract final class HyperRenderDebugHooks {
   /// Returns null if no performance data is available for [id].
   static Map<String, dynamic>? Function(String id)? getPerformanceData;
 
+  /// Called after each [performLayout] / [paint] of a renderer with its
+  /// duration in microseconds. [phase] is `'layout'` or `'paint'`.
+  ///
+  /// Paint time is canvas *recording* time on the UI thread — it does not
+  /// include rasterization (GPU) cost. Each virtualized chunk is its own
+  /// renderer, so timings are naturally per chunk.
+  static void Function(String id, String phase, int micros)? onFrameTiming;
+
+  /// Called from paint when a renderer's text selection differs from the
+  /// last one reported for it. [start]/[end] are the global character
+  /// offsets matching each fragment's `globalOffset`; both null when the
+  /// selection was cleared.
+  static void Function(String id, int? start, int? end)? onSelectionChanged;
+
   /// Returns true only when at least one hook is registered.
   /// Used as a fast-path guard in hot paths.
   static bool get isActive =>
       kDebugMode &&
       (onRendererAttached != null ||
           onRendererDetached != null ||
-          onLayoutComplete != null);
+          onLayoutComplete != null ||
+          onFrameTiming != null ||
+          onSelectionChanged != null);
 }
