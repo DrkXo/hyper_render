@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueNotifier, kDebugMode;
 
 import '../model/node.dart';
 
@@ -62,6 +62,16 @@ abstract final class HyperRenderDebugHooks {
   /// offsets matching each fragment's `globalOffset`; both null when the
   /// selection was cleared.
   static void Function(String id, int? start, int? end)? onSelectionChanged;
+
+  /// CSS custom property overrides set from DevTools (`{'--name': value}`).
+  ///
+  /// In debug builds `HyperViewer` passes these to its
+  /// [StyleResolver.customPropertyOverrides] and re-parses whenever the
+  /// value changes, so an edited `--var` re-renders live. Applies to every
+  /// `HyperViewer` in the app; a bare `HyperRenderWidget` with a prebuilt
+  /// document is not re-resolved.
+  static final ValueNotifier<Map<String, String>> cssVariableOverrides =
+      ValueNotifier(const {});
 
   /// Returns true only when at least one hook is registered.
   /// Used as a fast-path guard in hot paths.

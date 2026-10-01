@@ -37,4 +37,41 @@ void main() {
         resolve(':root { --b: #0000ff; } p { color: var(--a, var(--b)); }');
     expect(p.style.color, const Color(0xFF0000FF));
   });
+
+  group('customPropertyOverrides (DevTools live edit)', () {
+    BlockNode resolveWith(String css, Map<String, String> overrides) {
+      final p = BlockNode.p(children: [TextNode('t')]);
+      p.attributes['style'] = '--inline: 1px';
+      StyleResolver()
+        ..customPropertyOverrides = overrides
+        ..parseCss(css)
+        ..resolveStyles(DocumentNode(children: [p]));
+      return p;
+    }
+
+    test('replaces a :root definition', () {
+      final p = resolveWith(
+          ':root { --c: #ff0000; } p { color: var(--c); }', {'--c': '#0000ff'});
+      expect(p.style.color, const Color(0xFF0000FF));
+    });
+
+    test('applies to a var defined and used in the same rule', () {
+      // A trailing `* { --c: … !important }` cannot do this: var() is
+      // substituted during the normal pass, before !important runs.
+      final p = resolveWith(
+          'p { --c: #ff0000; color: var(--c); }', {'--c': '#0000ff'});
+      expect(p.style.color, const Color(0xFF0000FF));
+    });
+
+    test('applies to inline custom properties', () {
+      final p = resolveWith('', {'--inline': '9px'});
+      expect(p.style.customProperties['--inline'], '9px');
+    });
+
+    test('leaves undeclared variables to their fallback', () {
+      final p = resolveWith(
+          'p { color: var(--nope, #00ff00); }', {'--other': '#0000ff'});
+      expect(p.style.color, const Color(0xFF00FF00));
+    });
+  });
 }

@@ -291,7 +291,39 @@ class HyperRenderDevtools {
           );
         }
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'id': id, 'variables': collectCssVariables(document)}),
+          jsonEncode({
+            'id': id,
+            'variables': collectCssVariables(document),
+            'overrides': HyperRenderDebugHooks.cssVariableOverrides.value,
+          }),
+        );
+      },
+    );
+
+    // ── Service extension: live-edit a CSS custom property ───────────────────
+    // Every HyperViewer re-resolves its styles with the override. An empty
+    // or missing `value` removes the override; `name: '*'` clears them all.
+    developer.registerExtension(
+      'ext.hyperRender.setCssVariable',
+      (method, parameters) async {
+        final name = parameters['name'] ?? '';
+        final value = parameters['value'] ?? '';
+        final next = name == '*'
+            ? const <String, String>{}
+            : applyCssVariableOverride(
+                HyperRenderDebugHooks.cssVariableOverrides.value,
+                name,
+                value,
+              );
+        if (next == null) {
+          return developer.ServiceExtensionResponse.error(
+            developer.ServiceExtensionResponse.invalidParams,
+            'CSS variable names must start with "--" (got "$name")',
+          );
+        }
+        HyperRenderDebugHooks.cssVariableOverrides.value = next;
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'overrides': next}),
         );
       },
     );

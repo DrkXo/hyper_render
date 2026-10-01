@@ -39,6 +39,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('--brand'), findsNWidgets(2));
 
+    // Live edit (demo mode rewrites the sample rows locally).
+    await tester.tap(find.byTooltip('Override --gap'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '20px');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('20px'), findsOneWidget);
+    expect(find.text('override'), findsOneWidget);
+
+    await tester.tap(find.text('Reset 1 override'));
+    await tester.pumpAndSettle();
+    expect(find.text('12px'), findsOneWidget);
+    expect(find.text('override'), findsNothing);
+
     await tester.tap(find.byTooltip('Export UDT snapshot (JSON)'));
     await tester.pumpAndSettle();
     expect(find.textContaining('hyper_render_devtools.snapshot/1'),

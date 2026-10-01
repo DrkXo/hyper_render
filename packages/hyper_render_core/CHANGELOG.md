@@ -7,6 +7,11 @@
 - **`HyperRenderDebugHooks.onFrameTiming`** — reports each `RenderHyperBox` layout and paint duration in microseconds. Paint is canvas recording time, not raster. It only runs in debug mode and only while the hook is set.
 - **`HyperRenderDebugHooks.onSelectionChanged`** — reports a renderer's selection range when it changes.
 - `RenderHyperBox.debugFragments()` now also includes `globalOffset`, `charLength`, `rubyText` and `rubyHeight`.
+- **`StyleResolver.customPropertyOverrides`** and **`HyperRenderDebugHooks.cssVariableOverrides`** — replace a `--custom-property` value wherever it is declared. Powers DevTools live CSS-variable editing.
+
+### 🐛 Fixes
+
+- **`var()` in stylesheet rules never resolved.** `<style>` and `customCss` declarations such as `p { color: var(--brand) }` produced nothing, fallback included, because csslib's `VarUsage` span lacks the `var(` prefix. Only inline `style=""` worked. Documents that relied on `var()` in a stylesheet will now render with those values.
 
 ## 1.9.0
 

@@ -266,6 +266,9 @@ class _InspectorShellState extends State<InspectorShell>
   ({int? start, int? end}) _selection = (start: null, end: null);
   List<Map<String, dynamic>> _cssVariables = [];
 
+  /// Live `--var` overrides currently applied in the app.
+  Map<String, String> _cssOverrides = {};
+
   /// Polls the timeline + selection once a second while enabled.
   Timer? _liveTimer;
 
@@ -295,7 +298,8 @@ class _InspectorShellState extends State<InspectorShell>
       _selectedNodeId = 'h1-1';
       _timeline = _kDemoTimeline;
       _selection = _kDemoSelection;
-      _cssVariables = _kDemoCssVariables;
+      _cssVariables = [..._kDemoCssVariables];
+      _cssOverrides = {};
       _loading = false;
     });
     _tabs.animateTo(0);
@@ -316,6 +320,7 @@ class _InspectorShellState extends State<InspectorShell>
       _timeline = {};
       _selection = (start: null, end: null);
       _cssVariables = [];
+      _cssOverrides = {};
     });
     _refresh();
   }
@@ -417,9 +422,58 @@ class _InspectorShellState extends State<InspectorShell>
   Future<void> _loadCssVariables(String id) async {
     final result = await _call('ext.hyperRender.getCssVariables', {'id': id});
     if (result != null && !result.containsKey('_error')) {
-      setState(() => _cssVariables =
-          ((result['variables'] as List?) ?? []).cast<Map<String, dynamic>>());
+      setState(() {
+        _cssVariables =
+            ((result['variables'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _cssOverrides =
+            ((result['overrides'] as Map?) ?? {}).cast<String, String>();
+      });
     }
+  }
+
+  /// Set (or with an empty [value], remove) a live `--var` override. Pass
+  /// `'*'` as [name] to clear every override.
+  Future<void> _setCssVariable(String name, String value) async {
+    if (_demoMode) {
+      // Demo: rewrite the sample definition sites in place.
+      setState(() {
+        if (name == '*') {
+          _cssOverrides = {};
+        } else if (value.trim().isEmpty) {
+          _cssOverrides = {..._cssOverrides}..remove(name);
+        } else {
+          _cssOverrides = {..._cssOverrides, name: value.trim()};
+        }
+        _cssVariables = [
+          for (final v in _kDemoCssVariables)
+            {...v, 'value': _cssOverrides[v['name']] ?? v['value']},
+        ];
+      });
+      return;
+    }
+    final result = await _call(
+      'ext.hyperRender.setCssVariable',
+      {'name': name, 'value': value},
+    );
+    if (!mounted) return;
+    if (result == null || result.containsKey('_error')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not set $name: ${result?['_error']}')));
+      return;
+    }
+    // The app re-parses; virtualized chunks come back as new renderers, so
+    // reload the renderer list rather than just this renderer.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (mounted) await _refresh();
+  }
+
+  Future<void> _editCssVariable(String name, String current) async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          _CssVariableEditDialog(name: name, initialValue: current),
+    );
+    if (value != null) await _setCssVariable(name, value);
   }
 
   void _setLive(bool live) {
@@ -914,14 +968,29 @@ class _InspectorShellState extends State<InspectorShell>
     return ListView(
       padding: const EdgeInsets.all(8),
       children: [
-        _SectionHeader('CSS custom properties (${_cssVariables.length} '
-            'definition sites)'),
+        Row(
+          children: [
+            Expanded(
+              child: _SectionHeader(
+                  'CSS custom properties (${_cssVariables.length} '
+                  'definition sites)'),
+            ),
+            if (_cssOverrides.isNotEmpty)
+              TextButton.icon(
+                onPressed: () => _setCssVariable('*', ''),
+                icon: const Icon(Icons.restart_alt, size: 16),
+                label: Text('Reset ${_cssOverrides.length} override'
+                    '${_cssOverrides.length == 1 ? '' : 's'}'),
+              ),
+          ],
+        ),
         const Padding(
           padding: EdgeInsets.only(bottom: 8),
           child: Text(
-            'Read-only. Lists each node where a --variable is defined or '
-            'changes value. var() references are substituted when styles '
-            'are resolved, so use sites are not shown.',
+            'Each node where a --variable is defined or changes value. '
+            'Click ✎ to override a variable live: every HyperViewer in the '
+            'app re-resolves its styles. Use sites are not listed — var() '
+            'is substituted when styles resolve.',
             style: TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ),
@@ -931,6 +1000,10 @@ class _InspectorShellState extends State<InspectorShell>
         else
           ..._cssVariables.map((v) => _CssVariableRow(
                 variable: v,
+                overridden: _cssOverrides.containsKey(v['name']),
+                onEdit: () => _editCssVariable(
+                    v['name'] as String, v['value'] as String? ?? ''),
+                onReset: () => _setCssVariable(v['name'] as String, ''),
                 onTapNode: _demoMode || _selectedRendererId == null
                     ? null
                     : () => _loadNodeStyle(
@@ -1107,8 +1180,17 @@ class _FragmentSpanRow extends StatelessWidget {
 
 class _CssVariableRow extends StatelessWidget {
   final Map<String, dynamic> variable;
+  final bool overridden;
+  final VoidCallback onEdit;
+  final VoidCallback onReset;
   final VoidCallback? onTapNode;
-  const _CssVariableRow({required this.variable, this.onTapNode});
+  const _CssVariableRow({
+    required this.variable,
+    required this.overridden,
+    required this.onEdit,
+    required this.onReset,
+    this.onTapNode,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1127,8 +1209,39 @@ class _CssVariableRow extends StatelessWidget {
             ),
             Expanded(
               flex: 4,
-              child: Text(variable['value'] as String? ?? '', style: mono),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      variable['value'] as String? ?? '',
+                      style: overridden
+                          ? mono.copyWith(
+                              color: Colors.deepOrange,
+                              fontWeight: FontWeight.bold)
+                          : mono,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (overridden) ...[
+                    const SizedBox(width: 4),
+                    const _TypeBadge('override'),
+                  ],
+                ],
+              ),
             ),
+            IconButton(
+              icon: const Icon(Icons.edit, size: 14),
+              tooltip: 'Override ${variable['name']}',
+              visualDensity: VisualDensity.compact,
+              onPressed: onEdit,
+            ),
+            if (overridden)
+              IconButton(
+                icon: const Icon(Icons.undo, size: 14),
+                tooltip: 'Remove override',
+                visualDensity: VisualDensity.compact,
+                onPressed: onReset,
+              ),
             Expanded(
               flex: 3,
               child: Text(
@@ -1140,6 +1253,57 @@ class _CssVariableRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Owns its [TextEditingController] so it outlives the dialog's closing
+/// animation (disposing it right after `showDialog` returns crashes the
+/// still-animating TextField).
+class _CssVariableEditDialog extends StatefulWidget {
+  final String name;
+  final String initialValue;
+  const _CssVariableEditDialog(
+      {required this.name, required this.initialValue});
+
+  @override
+  State<_CssVariableEditDialog> createState() => _CssVariableEditDialogState();
+}
+
+class _CssVariableEditDialogState extends State<_CssVariableEditDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.name, style: const TextStyle(fontFamily: 'monospace')),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        style: const TextStyle(fontFamily: 'monospace'),
+        decoration: const InputDecoration(
+          helperText: 'Applies to every HyperViewer in the app. '
+              'Empty = remove override.',
+        ),
+        onSubmitted: (v) => Navigator.of(context).pop(v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

@@ -132,6 +132,16 @@ class StyleResolver {
   /// Get parsed CSS rules (for debugging)
   List<CssRule> get cssRules => List.unmodifiable(_cssRules);
 
+  /// Replacement values for CSS custom properties, keyed by `--name`.
+  ///
+  /// Wherever a `--name` declaration is cascaded (stylesheet, inline or
+  /// `!important`), the override's value is stored instead, so every
+  /// `var(--name)` read afterwards — including one later in the same rule —
+  /// sees it. Variables that are never declared are not affected (their
+  /// `var()` fallback still applies). Used by DevTools live editing via
+  /// [HyperRenderDebugHooks.cssVariableOverrides].
+  Map<String, String> customPropertyOverrides = const {};
+
   // ── Rule index for O(1) candidate lookup ────────────────────────────────
   // After _extractRules, rules are partitioned by their "key" selector part:
   //   _rulesByTag['p']    — rules whose rightmost simple part is the element "p"
@@ -1301,7 +1311,8 @@ class StyleResolver {
   }) {
     // CSS Custom Properties (--name: value)
     if (property.startsWith('--')) {
-      style.customProperties[property] = value;
+      style.customProperties[property] =
+          customPropertyOverrides[property] ?? value;
       return style;
     }
 

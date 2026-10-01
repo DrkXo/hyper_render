@@ -75,6 +75,25 @@ List<Map<String, dynamic>> collectCssVariables(DocumentNode document) {
   return out;
 }
 
+/// The override map after setting `name` to `value` — a new map, so the
+/// `ValueNotifier` holding it notifies. An empty [value] removes the
+/// override. Returns null when [name] is not a custom property.
+Map<String, String>? applyCssVariableOverride(
+  Map<String, String> current,
+  String name,
+  String value,
+) {
+  if (!name.startsWith('--') || name.length < 3) return null;
+  final next = Map<String, String>.of(current);
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    next.remove(name);
+  } else {
+    next[name] = trimmed;
+  }
+  return Map.unmodifiable(next);
+}
+
 /// Everything the inspector knows about one renderer, as a single
 /// self-describing JSON object for offline analysis.
 Map<String, dynamic> buildSnapshot({

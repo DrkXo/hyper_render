@@ -177,7 +177,7 @@ Remaining v2.0 scope:
 
 v2.x scope (unreleased, on `feat/devtools-v2`; needs `hyper_render_core` 1.10.0):
 - [x] Performance timeline (layout + paint timing per renderer = per virtualized chunk; paint is canvas recording time, not GPU raster)
-- [ ] Live CSS variable inspector — **read-only half done**: lists where each `--var` is defined. Editing values with instant re-render is still open: `var()` is substituted when `HyperViewer` resolves styles at parse time, so a live edit needs a re-resolve trigger in the root package.
+- [x] Live CSS variable inspector (lists where each `--var` is defined; ✎ overrides it and every `HyperViewer` re-resolves live. A bare `HyperRenderWidget` with a prebuilt document is not re-resolved. Building it surfaced that `var()` in stylesheet rules had never resolved — fixed in core 1.10.0)
 - [x] Selection debug panel (fragment boundaries as global character ranges, selection overlap, ruby text/height/position)
 - [x] Export UDT snapshot to JSON for offline analysis
 - [ ] Float region visualizer — was listed as shipped in v1.0.0 but never existed; neither the panel nor the in-app `debugShowHyperRenderBounds` overlay draws float rects

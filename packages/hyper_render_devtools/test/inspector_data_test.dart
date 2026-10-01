@@ -55,6 +55,22 @@ void main() {
     });
   });
 
+  group('applyCssVariableOverride', () {
+    test('sets, trims, and removes on empty value', () {
+      final a = applyCssVariableOverride(const {}, '--c', ' blue ')!;
+      expect(a, {'--c': 'blue'});
+      final b = applyCssVariableOverride(a, '--g', '4px')!;
+      expect(b, {'--c': 'blue', '--g': '4px'});
+      expect(applyCssVariableOverride(b, '--c', '')!, {'--g': '4px'});
+      expect(a, {'--c': 'blue'}, reason: 'input map is not mutated');
+    });
+
+    test('rejects non custom-property names', () {
+      expect(applyCssVariableOverride(const {}, 'color', 'red'), isNull);
+      expect(applyCssVariableOverride(const {}, '--', 'red'), isNull);
+    });
+  });
+
   test('buildSnapshot is JSON-encodable and self-describing', () {
     final document = DocumentNode(children: [
       BlockNode.p(children: [TextNode('hi')]),

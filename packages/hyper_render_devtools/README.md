@@ -10,7 +10,7 @@ Flutter DevTools extension for [HyperRender](https://github.com/brewkits/hyper_r
 - **Performance Summary** — fragment count, line count, and phase timing (when wired with `HyperRenderDebugHooks.getPerformanceData`)
 - **Timeline** — layout + paint time for every renderer (each virtualized chunk is one), slowest first, with a paint sparkline and a 1-second live mode. Paint is canvas *recording* time on the UI thread, not GPU raster time. Keeps the last 120 samples per renderer.
 - **Selection debug** — the current selection range and every text/ruby fragment's global character boundaries `[start, end)`, with the selected part highlighted and ruby annotation text/height/position
-- **CSS Variables** — read-only list of where each `--custom-property` is defined or changes value. `var()` is substituted when styles resolve, so use sites are not shown, and values cannot be edited live yet
+- **CSS Variables** — where each `--custom-property` is defined or changes value. Click ✎ to override one live: every `HyperViewer` in the app re-resolves its styles (needs `hyper_render` 1.10.0+; a bare `HyperRenderWidget` with a prebuilt document is not re-resolved). Use sites are not shown: `var()` is substituted when styles resolve
 - **Export snapshot** — one JSON object (tree with computed styles, fragments, lines, selection, timing, CSS variables) for offline analysis; copy from the dialog
 - **Auto-discovery** — all `HyperViewer` / `HyperRenderWidget` instances register automatically; no per-widget setup needed
 - **Demo Mode** — open the panel without a running app to explore the inspector UI with sample data
@@ -76,7 +76,7 @@ class MyApp extends StatelessWidget {
 
 ## Service extensions
 
-The package registers nine VM service extensions:
+The package registers ten VM service extensions:
 
 | Extension | Description |
 |---|---|
@@ -89,6 +89,7 @@ The package registers nine VM service extensions:
 | `ext.hyperRender.getSelection` | Current selection `start`/`end` (global character offsets) |
 | `ext.hyperRender.getCssVariables` | CSS custom property definition sites |
 | `ext.hyperRender.exportSnapshot` | Everything above for one renderer, as one JSON object |
+| `ext.hyperRender.setCssVariable` | Override a `--var` live (`name`, `value`; empty value removes it, `name: *` clears all) |
 
 ## Manual registration
 
