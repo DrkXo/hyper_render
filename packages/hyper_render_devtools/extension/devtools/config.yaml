@@ -1,4 +1,4 @@
-name: HyperRender Inspector
+name: hyper_render_devtools
 description: Inspect UDT node trees, computed styles, fragments, and performance metrics.
 issueTracker: https://github.com/brewkits/hyper_render/issues
 version: 1.0.0
