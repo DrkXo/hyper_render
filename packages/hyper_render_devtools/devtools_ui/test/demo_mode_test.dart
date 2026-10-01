@@ -1,3 +1,8 @@
+// The panel imports devtools_extensions → dart:js_interop, which only
+// compiles for the web: run with `flutter test --platform chrome`.
+@TestOn('browser')
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyper_render_devtools_ui/main.dart';

@@ -687,6 +687,11 @@ class RenderHyperBox extends RenderBox
     _loadImages();
     if (kDebugMode) {
       HyperRenderDebugHooks.onRendererAttached?.call(_debugId, () => _document);
+      // detach() makes DevTools forget this renderer's selection; force the
+      // next paint to re-report it if the box comes back still selected
+      // (keep-alive / reparenting). An unselected box needs no report:
+      // "no entry" already reads as no selection.
+      if (_selection != null) _debugReportedSelection = (null, -1);
     }
   }
 

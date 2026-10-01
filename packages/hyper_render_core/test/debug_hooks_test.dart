@@ -66,6 +66,42 @@ void main() {
     expect(events.last, (null, null));
   });
 
+  testWidgets('selection is re-reported after detach + re-attach',
+      (tester) async {
+    // DevTools drops a renderer's selection on detach; a GlobalKey reparent
+    // re-attaches the same box with its selection intact, which must be
+    // pushed again or the panel would show "none".
+    final events = <(int?, int?)>[];
+    HyperRenderDebugHooks.onSelectionChanged =
+        (id, start, end) => events.add((start, end));
+    final key = GlobalKey();
+    Widget host({required bool wrapped}) {
+      final child = HyperRenderWidget(
+        key: key,
+        document: DocumentNode(children: [
+          BlockNode.p(children: [TextNode('Hello timing hooks')]),
+        ]),
+      );
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child:
+            wrapped ? Padding(padding: EdgeInsets.zero, child: child) : child,
+      );
+    }
+
+    await tester.pumpWidget(host(wrapped: false));
+    final before = box(tester);
+    before.selectAll();
+    await tester.pump();
+    expect(events, hasLength(1));
+
+    await tester.pumpWidget(host(wrapped: true));
+    expect(identical(box(tester), before), isTrue,
+        reason: 'GlobalKey reparent keeps the same render object');
+    expect(events, hasLength(2));
+    expect(events.last, (0, 'Hello timing hooks'.length));
+  });
+
   testWidgets('debugFragments exposes globalOffset and charLength',
       (tester) async {
     await tester.pumpWidget(doc());
