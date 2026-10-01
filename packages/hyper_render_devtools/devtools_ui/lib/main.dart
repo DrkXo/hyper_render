@@ -271,15 +271,10 @@ class _InspectorShellState extends State<InspectorShell>
         method,
         args: args,
       );
-      final raw = result.json;
-      if (raw == null) return null;
-      final res = raw['result'];
-      if (res is String) {
-        return jsonDecode(res) as Map<String, dynamic>;
-      } else if (res is Map) {
-        return res.cast<String, dynamic>();
-      }
-      return raw;
+      // vm_service has already unwrapped the JSON-RPC envelope: `json` IS
+      // the object the extension passed to ServiceExtensionResponse.result
+      // (e.g. {'renderers': [...]}), not a wrapper holding it under 'result'.
+      return result.json;
     } catch (e) {
       return {'_error': e.toString()};
     }
