@@ -273,10 +273,13 @@ class _InspectorShellState extends State<InspectorShell>
       );
       final raw = result.json;
       if (raw == null) return null;
-      // The response is encoded as a JSON string inside result['result']
-      final resultStr = raw['result'] as String?;
-      if (resultStr == null) return null;
-      return jsonDecode(resultStr) as Map<String, dynamic>;
+      final res = raw['result'];
+      if (res is String) {
+        return jsonDecode(res) as Map<String, dynamic>;
+      } else if (res is Map) {
+        return res.cast<String, dynamic>();
+      }
+      return raw;
     } catch (e) {
       return {'_error': e.toString()};
     }
