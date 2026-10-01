@@ -31,7 +31,7 @@ For detailed CSS property tracking, see [`CSS_PROPERTIES_MATRIX.md`](CSS_PROPERT
 - **High Coverage Milestone** (v1.3.0) — Reached >80% global test coverage with expanded suites for all parsers and selection logic.
 - Modular package architecture: `hyper_render_core`, `hyper_render_html`,
   `hyper_render_markdown`, `hyper_render_highlight`, `hyper_render_clipboard`
-- **`hyper_render_devtools` v1.0.0** — UDT Tree inspector, Computed Style panel, Float region visualizer, demo mode (no live app required); published to pub.dev
+- **`hyper_render_devtools` v1.0.0** — UDT Tree inspector, Computed Style panel, Layout fragment/line data, demo mode (no live app required); published to pub.dev
 - **Golden test coverage** — Float layout, RTL/BiDi, CJK + Ruby suites pinned to ubuntu-22.04 + Flutter 3.29.2 + Noto fonts for pixel-stable CI
 - **Layout regression CI tracking** — 6 fixtures (simple paragraph → 100-paragraph article) measured against a 16 ms (60 FPS) budget on every PR. Results are recorded and posted to the PR, but are **advisory and do not block the build**: GitHub runners use software rendering and are 2–3× slower than the target hardware, so a hard gate there would fail on runner noise rather than on real regressions. Enforcing this properly requires release-mode measurement on a real device, which is not yet wired up.
 - **3-pipeline CI architecture** — Pre-flight (format + analyze, < 2 min) · Core Validation (per-package selective tests on PR, full 3-OS × 2-channel matrix on push) · Visual/Performance gates (golden + benchmark)
@@ -173,13 +173,14 @@ Remaining v2.0 scope:
 
 ### hyper_render_devtools — v2.x Improvements
 
-**Status**: ✅ v1.0.0 shipped — UDT Tree inspector, Computed Style panel, Float region visualizer, demo mode
+**Status**: ✅ v1.0.0 shipped — UDT Tree inspector, Computed Style panel, Layout fragment/line data, demo mode
 
-Remaining v2.x scope:
-- [ ] Performance timeline overlay (layout + paint timing per chunk)
-- [ ] Live CSS variable inspector (edit `--var` values and see instant re-render)
-- [ ] Selection debug panel (show fragment boundaries, ruby offsets)
-- [ ] Export UDT snapshot to JSON for offline analysis
+v2.x scope (unreleased, on `feat/devtools-v2`; needs `hyper_render_core` 1.10.0):
+- [x] Performance timeline (layout + paint timing per renderer = per virtualized chunk; paint is canvas recording time, not GPU raster)
+- [ ] Live CSS variable inspector — **read-only half done**: lists where each `--var` is defined. Editing values with instant re-render is still open: `var()` is substituted when `HyperViewer` resolves styles at parse time, so a live edit needs a re-resolve trigger in the root package.
+- [x] Selection debug panel (fragment boundaries as global character ranges, selection overlap, ruby text/height/position)
+- [x] Export UDT snapshot to JSON for offline analysis
+- [ ] Float region visualizer — was listed as shipped in v1.0.0 but never existed; neither the panel nor the in-app `debugShowHyperRenderBounds` overlay draws float rects
 
 ---
 

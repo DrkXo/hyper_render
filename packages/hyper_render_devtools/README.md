@@ -8,6 +8,10 @@ Flutter DevTools extension for [HyperRender](https://github.com/brewkits/hyper_r
 - **Computed Style Viewer** — inspect every CSS property resolved on any node (font, box model, display, float, grid, CSS variables)
 - **Layout Fragment & Line Data** — see every inline fragment with its width/height/offset, and every line with its baseline
 - **Performance Summary** — fragment count, line count, and phase timing (when wired with `HyperRenderDebugHooks.getPerformanceData`)
+- **Timeline** — layout + paint time for every renderer (each virtualized chunk is one), slowest first, with a paint sparkline and a 1-second live mode. Paint is canvas *recording* time on the UI thread, not GPU raster time. Keeps the last 120 samples per renderer.
+- **Selection debug** — the current selection range and every text/ruby fragment's global character boundaries `[start, end)`, with the selected part highlighted and ruby annotation text/height/position
+- **CSS Variables** — read-only list of where each `--custom-property` is defined or changes value. `var()` is substituted when styles resolve, so use sites are not shown, and values cannot be edited live yet
+- **Export snapshot** — one JSON object (tree with computed styles, fragments, lines, selection, timing, CSS variables) for offline analysis; copy from the dialog
 - **Auto-discovery** — all `HyperViewer` / `HyperRenderWidget` instances register automatically; no per-widget setup needed
 - **Demo Mode** — open the panel without a running app to explore the inspector UI with sample data
 
@@ -67,12 +71,12 @@ class MyApp extends StatelessWidget {
 
 1. Run your app in debug mode: `flutter run`
 2. Open Flutter DevTools (via IDE or `flutter devtools`)
-3. Select the **HyperRender** tab in the sidebar
+3. Select the **hyper_render_devtools** tab in the sidebar
 4. Use the dropdown to pick an active renderer instance
 
 ## Service extensions
 
-The package registers five VM service extensions:
+The package registers nine VM service extensions:
 
 | Extension | Description |
 |---|---|
@@ -81,6 +85,10 @@ The package registers five VM service extensions:
 | `ext.hyperRender.getNodeStyle` | Computed style for a specific node |
 | `ext.hyperRender.getFragments` | Layout fragments + lines from last pass |
 | `ext.hyperRender.getPerformance` | Performance summary (fragment/line counts + timing) |
+| `ext.hyperRender.getTimeline` | Last 120 layout/paint timings per renderer (all renderers, or one via `id`) |
+| `ext.hyperRender.getSelection` | Current selection `start`/`end` (global character offsets) |
+| `ext.hyperRender.getCssVariables` | CSS custom property definition sites |
+| `ext.hyperRender.exportSnapshot` | Everything above for one renderer, as one JSON object |
 
 ## Manual registration
 
