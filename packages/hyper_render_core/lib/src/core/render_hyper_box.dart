@@ -1840,8 +1840,9 @@ class RenderHyperBox extends RenderBox
   /// Returns exact pixel-snapped bounding boxes for characters in `[charStart, charEnd)`
   /// within this RenderHyperBox's local coordinate space.
   ///
-  /// This computes exact glyph boundaries using [TextPainter.getBoxesForSelection]
-  /// with [ui.BoxHeightStyle.tight], matching the precision used by text selection.
+  /// Glyph x-boundaries come from [TextPainter.getBoxesForSelection] with
+  /// [ui.BoxHeightStyle.tight]; y-boundaries use the line's [top] and [height]
+  /// so highlight rows align with the rendered line grid.
   /// Adjacent boxes on the same line are merged to produce clean contiguous highlight rects.
   List<Rect> getBoxesForCharRange(int charStart, int charEnd) {
     if (charEnd <= charStart || _lines.isEmpty) return const [];

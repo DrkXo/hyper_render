@@ -103,5 +103,57 @@ void main() {
       expect(rects.length, greaterThan(1),
           reason: 'should produce rects per line');
     });
+
+    testWidgets('preserves spaces in white-space:pre fragment', (tester) async {
+      // A text node carrying white-space:pre directly — internal spaces must NOT
+      // be trimmed by the isPreformatted guard in getBoxesForCharRange.
+      // Without the guard, leading spaces at the selection edge would be stripped
+      // and the returned rect would be narrower (or empty if all spaces).
+      const preText = '   hello'; // 3 leading spaces + word
+      final doc = DocumentNode(children: [
+        BlockNode.p(children: [
+          TextNode(preText, style: ComputedStyle(whiteSpace: 'pre')),
+        ]),
+      ]);
+
+      final box = await _pump(tester, doc, width: 400);
+      // Range 0..8 covers the entire "   hello" text including leading spaces.
+      final rects = box.getBoxesForCharRange(0, preText.length);
+      expect(rects, isNotEmpty,
+          reason:
+              'pre-formatted text with leading spaces should produce a rect');
+      // The rect must include the space width — wider than just "hello".
+      expect(rects.first.width, greaterThan(20.0));
+    });
+
+    testWidgets(
+        'inline image between two words does not spuriously merge word rects',
+        (tester) async {
+      // "hello " + 16px image + " world" — the maxGap heuristic introduced in
+      // f5a313b must not bridge the gap caused by the image column and collapse
+      // two separate word rects into one.
+      final doc = DocumentNode(children: [
+        BlockNode.p(children: [
+          TextNode('hello '),
+          AtomicNode.img(
+            src: 'https://example.com/1x1.png',
+            width: 16,
+            height: 16,
+          ),
+          TextNode(' world'),
+        ]),
+      ]);
+
+      final box = await _pump(tester, doc, width: 600);
+      // Char range 0..11 covers the logical text "hello  world" (image is not
+      // a text character, so "hello " is 6 chars and " world" is 6 chars).
+      final rects = box.getBoxesForCharRange(0, 12);
+      expect(rects, isNotEmpty);
+      // Each rect must have non-trivial width — not a collapsed zero-width rect.
+      for (final r in rects) {
+        expect(r.width, greaterThan(10.0),
+            reason: 'each word rect should have real width');
+      }
+    });
   });
 }
