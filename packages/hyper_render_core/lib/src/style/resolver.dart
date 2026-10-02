@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart' hide BorderStyle, TextDirection;
 
 import '../model/computed_style.dart';
 import '../model/node.dart';
+import '../util/url_safety.dart';
 
 /// CSS Style Resolver
 ///
@@ -385,8 +386,7 @@ class StyleResolver {
     _rulesById.clear();
     _universalRules.clear();
     _rulesDeclareCustomProperties = _cssRules.any((r) =>
-        r.declarations.keys.any(_isCustomProperty) ||
-        r.importantDeclarations.keys.any(_isCustomProperty));
+        r.declaresCustomProperties || r.declaresImportantCustomProperties);
 
     for (final rule in _cssRules) {
       // Extract the rightmost simple selector part (after any combinator).
@@ -517,6 +517,18 @@ class StyleResolver {
               if (argText.isNotEmpty) {
                 parts.add('${expr.text}($argText');
               }
+            } else if (expr is css_ast.CalcTerm) {
+              // calc() / min() / max() / clamp(): text is the function name,
+              // span starts after the '(' — same quirk as FunctionTerm.
+              final argText = expr.span?.text ?? '';
+              if (argText.isNotEmpty) parts.add('${expr.text}($argText');
+            } else if (expr is css_ast.UriTerm) {
+              // url(): span is only "a.png)" — the "url(" prefix is dropped.
+              final argText = expr.span?.text ?? '';
+              if (argText.isNotEmpty) parts.add('url($argText');
+            } else if (expr is css_ast.UnicodeRangeTerm) {
+              final text = expr.span?.text ?? '';
+              if (text.isNotEmpty) parts.add('U+$text');
             } else if (expr is css_ast.VarUsage) {
               // Same span quirk: csslib parses var() as a VarUsage whose
               // span is only "--name)" / "--name, fallback)". Without the
@@ -983,6 +995,13 @@ class StyleResolver {
 
     final parent = node.parent;
 
+    // ── :root ───────────────────────────────────────────────────────────────
+    // The document root only. It used to fall through to "unknown → match",
+    // so `:root { … }` applied to EVERY element: `:root { font-size: 62.5% }`
+    // compounded per level, and `:root { --c: … }` reset any descendant
+    // override of --c on every element below it.
+    if (pseudo == ':root') return parent == null;
+
     // ── :first-child ────────────────────────────────────────────────────────
     if (pseudo == ':first-child') {
       return parent != null &&
@@ -1310,8 +1329,7 @@ class StyleResolver {
 
     if (_rulesDeclareCustomProperties) {
       for (final rule in candidates) {
-        if (rule.declarations.isNotEmpty &&
-            rule.declarations.keys.any(_isCustomProperty) &&
+        if (rule.declaresCustomProperties &&
             _matchesSelector(node, rule.selector)) {
           rule.declarations.forEach(take);
         }
@@ -1327,8 +1345,7 @@ class StyleResolver {
     }
     if (_rulesDeclareCustomProperties) {
       for (final rule in candidates) {
-        if (rule.importantDeclarations.isNotEmpty &&
-            rule.importantDeclarations.keys.any(_isCustomProperty) &&
+        if (rule.declaresImportantCustomProperties &&
             _matchesSelector(node, rule.selector)) {
           rule.importantDeclarations.forEach(take);
         }
@@ -1393,6 +1410,10 @@ class StyleResolver {
     // Resolve var() and calc() references before processing
     value =
         _resolveCssValue(value, style.customProperties, inheritedCustomProps);
+    // Nothing left (an undefined var() without fallback, or an expansion
+    // over the length limit): invalid at computed-value time — ignore it
+    // rather than apply an empty value.
+    if (value.trim().isEmpty) return style;
 
     switch (property) {
       case 'color':
@@ -1413,7 +1434,9 @@ class StyleResolver {
           }
         } else if (value.contains('url(')) {
           final match = _Re.urlFunc.firstMatch(value);
-          if (match != null) {
+          // Same scheme policy as <img src>: stylesheets come from <style>
+          // blocks that bypass the HTML sanitizer.
+          if (match != null && UrlSafety.isSafe(match.group(1)!)) {
             style.backgroundImage = match.group(1);
             style.markExplicitlySet('background-image');
           }
@@ -1452,7 +1475,9 @@ class StyleResolver {
           }
         } else if (value.contains('url(')) {
           final match = _Re.urlFunc.firstMatch(value);
-          if (match != null) {
+          // Same scheme policy as <img src>: stylesheets come from <style>
+          // blocks that bypass the HTML sanitizer.
+          if (match != null && UrlSafety.isSafe(match.group(1)!)) {
             style.backgroundImage = match.group(1);
             style.markExplicitlySet('background-image');
           }
@@ -2405,13 +2430,14 @@ class StyleResolver {
   ) {
     if (!value.contains('var(') && !value.contains('calc(')) return value;
 
-    // Merge custom props: local + inherited (local wins)
-    final allProps = <String, String>{};
-    if (inheritedCustomProps != null) allProps.addAll(inheritedCustomProps);
-    allProps.addAll(localCustomProps);
-
-    // Resolve var() first (supports nested: var(--x, fallback))
-    value = _resolveVarReferences(value, allProps);
+    // Resolve var() first (supports nested: var(--x, fallback)). Look up
+    // local then inherited directly: merging both maps per declaration cost
+    // O(#custom properties) for every var() on every element (Bootstrap
+    // defines hundreds on :root).
+    value = _resolveVarReferences(
+      value,
+      (name) => localCustomProps[name] ?? inheritedCustomProps?[name],
+    );
 
     // Then evaluate calc()
     if (value.contains('calc(')) {
@@ -2426,22 +2452,42 @@ class StyleResolver {
   /// Resolves from innermost outward by matching only leaf var() calls
   /// (those whose content contains no nested parens). This correctly handles
   /// nested fallbacks like var(--a, var(--b, default)).
-  String _resolveVarReferences(String value, Map<String, String> customProps) {
-    for (int i = 0; i < 10; i++) {
-      // [^()]+ ensures we only match leaf var() calls (no nested parens inside)
-      final resolved = value.replaceAllMapped(
-        _Re.cssVar,
-        (match) {
-          final propName = match.group(1)!;
-          final fallback = match.group(2)?.trim() ?? '';
-          return customProps[propName] ?? fallback;
-        },
-      );
-      if (resolved == value) break; // No more replacements
-      value = resolved;
+  String _resolveVarReferences(
+      String value, String? Function(String name) lookup) {
+    for (int i = 0; i < _kMaxVarPasses; i++) {
+      // Leaf var() calls only ([^,)] / [^)] — no nested parens inside), so
+      // nested fallbacks resolve inside-out across passes.
+      final buffer = StringBuffer();
+      var last = 0;
+      var replaced = false;
+      for (final match in _Re.cssVar.allMatches(value)) {
+        buffer.write(value.substring(last, match.start));
+        final propName = match.group(1)!;
+        final fallback = match.group(2)?.trim() ?? '';
+        buffer.write(lookup(propName) ?? fallback);
+        last = match.end;
+        replaced = true;
+        // Checked per substitution, not per pass: one pass over a value with
+        // thousands of var() refs to a large property could otherwise
+        // allocate gigabytes before the pass ends. Each pass can multiply
+        // the length (`--b: var(--a) var(--a) …`), so untrusted <style>
+        // could crash the app; an over-long value is invalid instead.
+        if (buffer.length > _kMaxVarExpansionLength) return '';
+      }
+      if (!replaced) break;
+      buffer.write(value.substring(last));
+      value = buffer.toString();
     }
     return value;
   }
+
+  /// Passes of var() substitution (one nesting level each). Bounds cycles
+  /// such as `--a: var(--b); --b: var(--a)`.
+  static const _kMaxVarPasses = 10;
+
+  /// Upper bound on a declaration value after var() substitution. Real
+  /// values are far smaller (a long font stack is < 1 KB).
+  static const _kMaxVarExpansionLength = 16 * 1024;
 
   /// Evaluate all calc() expressions in a value string.
   ///
@@ -3285,6 +3331,14 @@ class StyleResolver {
     // CSS custom properties cascade: always inherit parent's props, with child
     // definitions taking precedence (same as CSS spec for custom properties)
     if (parentStyle.customProperties.isNotEmpty) {
+      if (style.customProperties.isEmpty) {
+        // Nothing of its own: share the parent's map instead of copying it.
+        // Copying cost O(#properties) per element — Bootstrap-style :root
+        // blocks define hundreds. Safe because the cascade only ever writes
+        // to the fresh map of the element being resolved, before this point.
+        style.customProperties = parentStyle.customProperties;
+        return;
+      }
       final inherited = Map<String, String>.from(parentStyle.customProperties);
       inherited.addAll(style.customProperties); // child overrides parent
       style.customProperties = inherited;
@@ -4013,6 +4067,16 @@ class CssRule {
     required this.specificity,
     this.sourceIndex = 0,
   }) : importantDeclarations = importantDeclarations ?? const {};
+
+  /// Whether a normal declaration sets a `--custom-property`. Cached:
+  /// the resolver's custom-property pre-pass asks for every candidate rule
+  /// of every element.
+  late final bool declaresCustomProperties =
+      declarations.keys.any((k) => k.startsWith('--'));
+
+  /// Same as [declaresCustomProperties], for `!important` declarations.
+  late final bool declaresImportantCustomProperties =
+      importantDeclarations.keys.any((k) => k.startsWith('--'));
 
   @override
   String toString() => 'CssRule($selector, specificity=$specificity, '

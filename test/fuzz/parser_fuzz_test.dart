@@ -161,6 +161,11 @@ void main() {
       '```\n```\n```\n',
       '[[[[[[[[[[text]]]]]]]]]]',
       '***___***text***___***',
+      // Stylesheet var()/url()/calc() shapes — <style> bypasses the sanitizer.
+      '<style>:root{--a:var(--b);--b:var(--a)}p{color:var(--a)}</style><p>x</p>',
+      '<style>p{width:calc(calc(calc(1px*2)*2)*2);background:url(</style><p>x',
+      '<style>p{--x:var(--x,var(--x,var(--x)))}p{margin:var(--x)}</style><p>x</p>',
+      '<style>p{background-image:url(javascript:alert(1))}</style><p>x</p>',
     ];
 
     for (var i = 0; i < adversarial.length; i++) {

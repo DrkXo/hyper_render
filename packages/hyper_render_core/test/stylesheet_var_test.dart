@@ -38,6 +38,54 @@ void main() {
     expect(p.style.color, const Color(0xFF0000FF));
   });
 
+  group('other csslib terms whose span drops the function name', () {
+    test('url() in a stylesheet rule', () {
+      expect(
+          resolve('p { background-image: url(https://e.com/a.png); }')
+              .style
+              .backgroundImage,
+          'https://e.com/a.png');
+      expect(
+          resolve("p { background: url('https://e.com/b.png'); }")
+              .style
+              .backgroundImage,
+          'https://e.com/b.png');
+    });
+
+    test('calc() in a stylesheet rule, with and without var()', () {
+      expect(resolve('p { width: calc(100px - 20px); }').style.width, 80);
+      expect(
+          resolve(':root { --x: 5px; } p { width: calc(10px + var(--x)); }')
+              .style
+              .width,
+          15);
+    });
+  });
+
+  group(':root matches only the document root', () {
+    test('a descendant override of a :root variable is inherited', () {
+      final span = InlineNode(tagName: 'span', children: [TextNode('s')]);
+      final p = BlockNode.p(children: [span])..attributes['class'] = 'x';
+      StyleResolver()
+        ..parseCss(':root { --c: #ff0000; } .x { --c: #0000ff; } '
+            'span { color: var(--c); }')
+        ..resolveStyles(DocumentNode(children: [p]));
+      expect(span.style.color, const Color(0xFF0000FF));
+    });
+
+    test(':root font-size does not compound per level', () {
+      final span = InlineNode(tagName: 'span', children: [TextNode('s')]);
+      final p = BlockNode.p(children: [span]);
+      final doc = DocumentNode(children: [p]);
+      StyleResolver()
+        ..parseCss(':root { font-size: 125%; }')
+        ..resolveStyles(doc);
+      expect(doc.style.fontSize, 20); // 125% of the 16px default
+      expect(span.style.fontSize, 20,
+          reason: 'inherited, not re-applied as 125% at every level');
+    });
+  });
+
   group('cascade order — custom properties resolve before var()', () {
     BlockNode resolveX(String css, {String? inline}) {
       final p = BlockNode.p(children: [TextNode('t')]);
