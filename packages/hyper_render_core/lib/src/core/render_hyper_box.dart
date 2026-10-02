@@ -687,6 +687,11 @@ class RenderHyperBox extends RenderBox
     _loadImages();
     if (kDebugMode) {
       HyperRenderDebugHooks.onRendererAttached?.call(_debugId, () => _document);
+      // detach() makes DevTools forget this renderer's selection; force the
+      // next paint to re-report it if the box comes back still selected
+      // (keep-alive / reparenting). An unselected box needs no report:
+      // "no entry" already reads as no selection.
+      if (_selection != null) _debugReportedSelection = (null, -1);
     }
   }
 
@@ -1195,6 +1200,17 @@ class RenderHyperBox extends RenderBox
 
   @override
   void performLayout() {
+    final onTiming = kDebugMode ? HyperRenderDebugHooks.onFrameTiming : null;
+    if (onTiming == null) {
+      _performLayout();
+      return;
+    }
+    final sw = Stopwatch()..start();
+    _performLayout();
+    onTiming(_debugId, 'layout', sw.elapsedMicroseconds);
+  }
+
+  void _performLayout() {
     if (_document == null) {
       size = constraints.smallest;
       return;
@@ -1378,6 +1394,33 @@ class RenderHyperBox extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    if (!kDebugMode) {
+      _paint(context, offset);
+      return;
+    }
+    final onTiming = HyperRenderDebugHooks.onFrameTiming;
+    final sw = onTiming == null ? null : (Stopwatch()..start());
+    _paint(context, offset);
+    if (onTiming != null) onTiming(_debugId, 'paint', sw!.elapsedMicroseconds);
+    _debugReportSelection();
+  }
+
+  /// Last selection pushed to [HyperRenderDebugHooks.onSelectionChanged].
+  /// Every selection change repaints, so checking here catches them all
+  /// without touching each of the selection setters.
+  (int?, int?) _debugReportedSelection = (null, null);
+
+  void _debugReportSelection() {
+    final onSelection = HyperRenderDebugHooks.onSelectionChanged;
+    if (onSelection == null) return;
+    final sel = _selection;
+    final current = (sel?.start, sel?.end);
+    if (current == _debugReportedSelection) return;
+    _debugReportedSelection = current;
+    onSelection(_debugId, current.$1, current.$2);
+  }
+
+  void _paint(PaintingContext context, Offset offset) {
     try {
       final canvas = context.canvas;
 
@@ -1722,6 +1765,10 @@ class RenderHyperBox extends RenderBox
         'offsetY': f.offset?.dy,
         'nodeId': f.sourceNode.id,
         'nodeTag': f.sourceNode.tagName,
+        'globalOffset': f.globalOffset,
+        'charLength': f.ellipsisVisibleLength ?? f.text?.length ?? 0,
+        if (f.rubyText != null) 'rubyText': f.rubyText,
+        if (f.rubyHeight != null) 'rubyHeight': f.rubyHeight,
       };
     }).toList();
   }

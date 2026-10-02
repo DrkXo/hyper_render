@@ -1016,6 +1016,10 @@ class _HyperViewerState extends State<HyperViewer>
     LazyImageQueue.instance.maxConcurrent =
         widget.renderConfig.imageConcurrency;
     WidgetsBinding.instance.addObserver(this);
+    if (kDebugMode) {
+      HyperRenderDebugHooks.cssVariableOverrides
+          .addListener(_onCssVariableOverridesChanged);
+    }
     _contentFadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -1158,6 +1162,10 @@ class _HyperViewerState extends State<HyperViewer>
     // see the correct maximum cache size after we're gone.
     _releaseTextCacheSize(_ownedTextCacheSize);
     WidgetsBinding.instance.removeObserver(this);
+    if (kDebugMode) {
+      HyperRenderDebugHooks.cssVariableOverrides
+          .removeListener(_onCssVariableOverridesChanged);
+    }
     _cancelParsing();
     _contentFadeController.dispose();
     _virtualizedSelectionController?.dispose();
@@ -1560,6 +1568,15 @@ class _HyperViewerState extends State<HyperViewer>
     }
   }
 
+  /// DevTools edited a CSS variable: re-resolve styles with the new values.
+  void _onCssVariableOverridesChanged() {
+    if (mounted) _parseContent();
+  }
+
+  /// `--var` overrides from DevTools; always empty in release builds.
+  static Map<String, String> get _cssVariableOverrides =>
+      kDebugMode ? HyperRenderDebugHooks.cssVariableOverrides.value : const {};
+
   void _parseContent() {
     // Fast path: pre-parsed AST — skip all parsing.
     if (widget._prebuiltDocument != null) {
@@ -1669,7 +1686,8 @@ class _HyperViewerState extends State<HyperViewer>
                 baseUrl: widget.baseUrl, customCss: cssToApply)
             : parser.parse(contentToRender);
 
-        final resolver = StyleResolver();
+        final resolver = StyleResolver()
+          ..customPropertyOverrides = _cssVariableOverrides;
         if (cssToApply.isNotEmpty) resolver.parseCss(cssToApply);
         resolver.resolveStyles(doc);
         setState(() {
@@ -1696,6 +1714,8 @@ class _HyperViewerState extends State<HyperViewer>
           cssToApply,
           widget.baseUrl,
           widget.renderConfig.virtualizationChunkSize,
+          // Passed explicitly: statics are not shared with a compute() isolate.
+          _cssVariableOverrides,
         );
 
         Future<List<DocumentNode>> parseFuture;
@@ -1730,7 +1750,8 @@ class _HyperViewerState extends State<HyperViewer>
                   baseUrl: widget.baseUrl, customCss: cssToApply)
               : parser.parse(contentToRender);
 
-          final resolver = StyleResolver();
+          final resolver = StyleResolver()
+            ..customPropertyOverrides = _cssVariableOverrides;
           if (cssToApply.isNotEmpty) resolver.parseCss(cssToApply);
           resolver.resolveStyles(doc);
 
@@ -1757,10 +1778,11 @@ class _HyperViewerState extends State<HyperViewer>
   }
 
   // Static function that runs in an isolate — must not capture context.
-  // Accepts a (html, css, baseUrl, chunkSize) record so CSS rules are available inside the isolate.
+  // Accepts a (html, css, baseUrl, chunkSize, cssVariableOverrides) record so
+  // CSS rules are available inside the isolate.
   static List<DocumentNode> _parseAndChunk(
-      (String, String, String?, int) args) {
-    final (html, css, baseUrl, chunkSize) = args;
+      (String, String, String?, int, Map<String, String>) args) {
+    final (html, css, baseUrl, chunkSize, cssVariableOverrides) = args;
     final adapter = HtmlAdapter();
     // chunkSize: keeps each RenderHyperBox well under GPU texture limits
     // (~4096px physical on most devices). Configurable via HyperRenderConfig.
@@ -1768,7 +1790,8 @@ class _HyperViewerState extends State<HyperViewer>
         adapter.parseToSections(html, chunkSize: chunkSize, baseUrl: baseUrl);
 
     // Resolve styles in the isolate so the main thread doesn't bear the cost.
-    final resolver = StyleResolver();
+    final resolver = StyleResolver()
+      ..customPropertyOverrides = cssVariableOverrides;
     if (css.isNotEmpty) resolver.parseCss(css);
     for (var section in sections) {
       resolver.resolveStyles(section);

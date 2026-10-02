@@ -1,6 +1,20 @@
 # Migration Guide
 
-> **Current version: v1.4.0**
+> **Current version: v1.10.0**
+
+## Upgrading to v1.10.0
+
+No API changes, but **rendering can change** for pages that relied on CSS which used to be silently ignored:
+
+- **`var()`, `url()` and `calc()` in `<style>` / `customCss` now resolve.** Before 1.10.0 they only worked in inline `style=""`. A page with `:root { --brand: … } p { color: var(--brand) }` now gets the brand color instead of the default.
+- **`:root` matches only the document root.** It used to match every element, so `:root { font-size: 125% }` compounded at each nesting level and `:root { --x }` reset descendant overrides.
+- **Stylesheet background URLs follow the `<img src>` scheme policy** (no `javascript:`, `file:`, `data:image/svg`, …).
+
+```yaml
+dependencies:
+  hyper_render: ^1.10.0
+  hyper_render_devtools: ^1.8.0   # optional: new Timeline / Selection / CSS Vars / Export tabs
+```
 
 ## Upgrading to v1.4.0
 

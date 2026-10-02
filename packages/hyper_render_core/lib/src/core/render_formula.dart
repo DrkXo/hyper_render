@@ -181,6 +181,13 @@ class FormulaWidget extends StatelessWidget {
       return '√(${match.group(1)})';
     });
 
+    // `^{2}` / `_{1}` (the usual LaTeX spelling) → `^2` / `_1`, so the
+    // single-character tables below apply; braces are only stripped later.
+    result = result.replaceAllMapped(
+      RegExp(r'([\^_])\{(\w)\}'),
+      (m) => '${m[1]}${m[2]}',
+    );
+
     // Handle superscripts: x^2 -> x²
     result = result
         .replaceAll('^0', '⁰')

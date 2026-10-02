@@ -1,5 +1,17 @@
 # Changelog — hyper_render_devtools
 
+## [1.8.0] - 2026-10-02
+
+### 🐛 Fixes
+- **The DevTools panel can load and connect now** (#17, thanks @DrkXo). `extension/devtools/config.yaml` used a display name that `devtools_extensions` rejects. Separately, the panel looked for its data under a `result` key that `vm_service` had already unwrapped, so it always showed "Could not connect".
+
+### 🆕 New
+- **Timeline tab** — layout + paint time for every renderer, slowest first, with a live mode (`ext.hyperRender.getTimeline`).
+- **Selection tab** — selection range and text/ruby fragment boundaries (`ext.hyperRender.getSelection`).
+- **CSS Vars tab** — where each custom property is defined, plus **live editing**: override a `--var` and every `HyperViewer` re-resolves (`ext.hyperRender.getCssVariables`, `ext.hyperRender.setCssVariable`).
+- **Export snapshot** — full JSON snapshot of a renderer (`ext.hyperRender.exportSnapshot`).
+- Requires `hyper_render_core` `^1.10.0` (new debug hooks) and `hyper_render` 1.10.0 for live CSS-variable editing in `HyperViewer`.
+
 ## [1.7.0] - 2026-08-22
 
 ### 🚀 Update

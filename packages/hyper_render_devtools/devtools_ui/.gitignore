@@ -47,4 +47,3 @@ app.*.map.json
 # Auto-generated boilerplate from `flutter create` — not needed in repo
 README.md
 analysis_options.yaml
-test/

@@ -1,7 +1,7 @@
 # CSS Properties Support Matrix
 
-Last Updated: September 6, 2026
-Version: 1.9.1
+Last Updated: October 2, 2026
+Version: 1.10.0
 
 This document lists CSS property support in HyperRender.
 
@@ -199,9 +199,9 @@ This document lists CSS property support in HyperRender.
 | Feature | Status | Supported Values | Notes |
 |---------|--------|------------------|-------|
 | `--custom-property` | ✅ | Any value | Custom properties are inherited along parent chain. |
-| `var(--name)` | ✅ | — | Resolved at cascade time with parent-chain lookup |
+| `var(--name)` | ✅ | — | In stylesheets (`<style>`, `customCss`) and inline. Before 1.10.0 only inline `style=""` resolved. Custom properties are cascaded before substitution; expansion is capped at 16 KB |
 | `var(--name, fallback)` | ✅ | — | Fallback used when variable not defined |
-| `calc()` | ✅ | px, em, rem, unitless | Correct operator precedence (`*`/`/` before `+`/`-`) |
+| `calc()` | ✅ | px, em, rem, unitless | Correct operator precedence (`*`/`/` before `+`/`-`). Stylesheet `calc()` resolves as of 1.10.0 (inline only before). `min()`/`max()`/`clamp()` are not evaluated |
 | `calc()` with `var()` | ✅ | — | `var()` resolved first, then arithmetic |
 
 ---

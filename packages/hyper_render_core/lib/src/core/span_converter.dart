@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../model/node.dart';
 import '../model/computed_style.dart';
+import '../util/html_whitespace.dart';
 import 'render_formula.dart';
 import 'render_media.dart';
 import 'render_ruby.dart';
@@ -363,10 +364,12 @@ class HtmlToSpanConverter {
         tagName == 'blockquote';
   }
 
-  /// Normalize whitespace (collapse multiple spaces, trim)
+  /// Collapse runs of CSS whitespace to a single space.
+  ///
+  /// Not `\s`: Dart's `\s` includes U+00A0, which CSS never collapses —
+  /// `&nbsp;&nbsp;` must stay two non-breaking spaces.
   String _normalizeWhitespace(String text) {
-    // Collapse multiple whitespace to single space
-    return text.replaceAll(RegExp(r'\s+'), ' ');
+    return text.replaceAll(cssWhitespaceRun, ' ');
   }
 
   /// Dispose gesture recognizers

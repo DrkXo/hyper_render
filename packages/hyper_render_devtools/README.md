@@ -8,6 +8,10 @@ Flutter DevTools extension for [HyperRender](https://github.com/brewkits/hyper_r
 - **Computed Style Viewer** — inspect every CSS property resolved on any node (font, box model, display, float, grid, CSS variables)
 - **Layout Fragment & Line Data** — see every inline fragment with its width/height/offset, and every line with its baseline
 - **Performance Summary** — fragment count, line count, and phase timing (when wired with `HyperRenderDebugHooks.getPerformanceData`)
+- **Timeline** — layout + paint time for every renderer (each virtualized chunk is one), slowest first, with a paint sparkline and a 1-second live mode. Paint is canvas *recording* time on the UI thread, not GPU raster time. Keeps the last 120 samples per renderer.
+- **Selection debug** — the current selection range and every text/ruby fragment's global character boundaries `[start, end)`, with the selected part highlighted and ruby annotation text/height/position
+- **CSS Variables** — where each `--custom-property` is defined or changes value. Click ✎ to override one live: every `HyperViewer` in the app re-resolves its styles (needs `hyper_render` 1.10.0+; a bare `HyperRenderWidget` with a prebuilt document is not re-resolved). Use sites are not shown: `var()` is substituted when styles resolve
+- **Export snapshot** — one JSON object (tree with computed styles, fragments, lines, selection, timing, CSS variables) for offline analysis; copy from the dialog
 - **Auto-discovery** — all `HyperViewer` / `HyperRenderWidget` instances register automatically; no per-widget setup needed
 - **Demo Mode** — open the panel without a running app to explore the inspector UI with sample data
 
@@ -17,14 +21,14 @@ Add the package to your app's `dev_dependencies` (debug-only usage):
 
 ```yaml
 dev_dependencies:
-  hyper_render_devtools: ^1.7.0
+  hyper_render_devtools: ^1.8.0
 ```
 
 Or add to `dependencies` if you want it available in profile builds:
 
 ```yaml
 dependencies:
-  hyper_render_devtools: ^1.7.0
+  hyper_render_devtools: ^1.8.0
 ```
 
 ## Usage
@@ -67,12 +71,12 @@ class MyApp extends StatelessWidget {
 
 1. Run your app in debug mode: `flutter run`
 2. Open Flutter DevTools (via IDE or `flutter devtools`)
-3. Select the **HyperRender** tab in the sidebar
+3. Select the **hyper_render_devtools** tab in the sidebar
 4. Use the dropdown to pick an active renderer instance
 
 ## Service extensions
 
-The package registers five VM service extensions:
+The package registers ten VM service extensions:
 
 | Extension | Description |
 |---|---|
@@ -81,6 +85,11 @@ The package registers five VM service extensions:
 | `ext.hyperRender.getNodeStyle` | Computed style for a specific node |
 | `ext.hyperRender.getFragments` | Layout fragments + lines from last pass |
 | `ext.hyperRender.getPerformance` | Performance summary (fragment/line counts + timing) |
+| `ext.hyperRender.getTimeline` | Last 120 layout/paint timings per renderer (all renderers, or one via `id`) |
+| `ext.hyperRender.getSelection` | Current selection `start`/`end` (global character offsets) |
+| `ext.hyperRender.getCssVariables` | CSS custom property definition sites |
+| `ext.hyperRender.exportSnapshot` | Everything above for one renderer, as one JSON object |
+| `ext.hyperRender.setCssVariable` | Override a `--var` live (`name`, `value`; empty value removes it, `name: *` clears all) |
 
 ## Manual registration
 

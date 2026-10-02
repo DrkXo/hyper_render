@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 
+import 'inspector_data.dart';
 import 'udt_serializer.dart';
 
 // Import hyper_render_core model types
@@ -24,7 +25,19 @@ class _HyperRenderRegistry {
 
   void unregister(String id) {
     _renderers.remove(id);
+    timing.remove(id);
+    _selections.remove(id);
   }
+
+  final TimingBuffer timing = TimingBuffer();
+  final Map<String, ({int? start, int? end})> _selections = {};
+
+  void updateSelection(String id, int? start, int? end) {
+    _selections[id] = (start: start, end: end);
+  }
+
+  ({int? start, int? end}) getSelection(String id) =>
+      _selections[id] ?? (start: null, end: null);
 
   void updateLayout(
     String id,
@@ -103,6 +116,17 @@ class HyperRenderDevtools {
         getFragments(),
         getLines(),
       );
+    };
+
+    HyperRenderDebugHooks.onFrameTiming = (id, phase, micros) {
+      _HyperRenderRegistry.instance.timing.add(
+        id,
+        TimingSample(phase, micros, DateTime.now().millisecondsSinceEpoch),
+      );
+    };
+
+    HyperRenderDebugHooks.onSelectionChanged = (id, start, end) {
+      _HyperRenderRegistry.instance.updateSelection(id, start, end);
     };
 
     // ── Service extension: list all active renderers ─────────────────────────
@@ -219,6 +243,113 @@ class HyperRenderDevtools {
         }
         return developer.ServiceExtensionResponse.result(
           jsonEncode({'id': id, 'performance': data}),
+        );
+      },
+    );
+
+    // ── Service extension: layout/paint timeline (all renderers) ─────────────
+    // Every virtualized chunk is its own renderer, so returning all of them
+    // is what makes the timeline "per chunk". Pass `id` to narrow it.
+    developer.registerExtension(
+      'ext.hyperRender.getTimeline',
+      (method, parameters) async {
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({
+            'renderers': _HyperRenderRegistry.instance.timing
+                .toJson(onlyId: parameters['id']),
+          }),
+        );
+      },
+    );
+
+    // ── Service extension: current text selection of a renderer ─────────────
+    developer.registerExtension(
+      'ext.hyperRender.getSelection',
+      (method, parameters) async {
+        final id = parameters['id'] ??
+            _HyperRenderRegistry.instance.registeredIds.firstOrNull ??
+            '';
+        final sel = _HyperRenderRegistry.instance.getSelection(id);
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'id': id, 'start': sel.start, 'end': sel.end}),
+        );
+      },
+    );
+
+    // ── Service extension: CSS custom property definition sites ──────────────
+    developer.registerExtension(
+      'ext.hyperRender.getCssVariables',
+      (method, parameters) async {
+        final id = parameters['id'] ??
+            _HyperRenderRegistry.instance.registeredIds.firstOrNull ??
+            '';
+        final document = _HyperRenderRegistry.instance.getDocument(id);
+        if (document == null) {
+          return developer.ServiceExtensionResponse.error(
+            developer.ServiceExtensionResponse.extensionError,
+            'No renderer found with id: $id',
+          );
+        }
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({
+            'id': id,
+            'variables': collectCssVariables(document),
+            'overrides': HyperRenderDebugHooks.cssVariableOverrides.value,
+          }),
+        );
+      },
+    );
+
+    // ── Service extension: live-edit a CSS custom property ───────────────────
+    // Every HyperViewer re-resolves its styles with the override. An empty
+    // or missing `value` removes the override; `name: '*'` clears them all.
+    developer.registerExtension(
+      'ext.hyperRender.setCssVariable',
+      (method, parameters) async {
+        final name = parameters['name'] ?? '';
+        final value = parameters['value'] ?? '';
+        final next = name == '*'
+            ? const <String, String>{}
+            : applyCssVariableOverride(
+                HyperRenderDebugHooks.cssVariableOverrides.value,
+                name,
+                value,
+              );
+        if (next == null) {
+          return developer.ServiceExtensionResponse.error(
+            developer.ServiceExtensionResponse.invalidParams,
+            'CSS variable names must start with "--" (got "$name")',
+          );
+        }
+        HyperRenderDebugHooks.cssVariableOverrides.value = next;
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'overrides': next}),
+        );
+      },
+    );
+
+    // ── Service extension: full snapshot for offline analysis ────────────────
+    developer.registerExtension(
+      'ext.hyperRender.exportSnapshot',
+      (method, parameters) async {
+        final registry = _HyperRenderRegistry.instance;
+        final id = parameters['id'] ?? registry.registeredIds.firstOrNull ?? '';
+        final document = registry.getDocument(id);
+        if (document == null) {
+          return developer.ServiceExtensionResponse.error(
+            developer.ServiceExtensionResponse.extensionError,
+            'No renderer found with id: $id',
+          );
+        }
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode(buildSnapshot(
+            id: id,
+            document: document,
+            fragments: registry.getFragments(id) ?? const [],
+            lines: registry.getLines(id) ?? const [],
+            selection: registry.getSelection(id),
+            timing: registry.timing.samplesFor(id),
+          )),
         );
       },
     );

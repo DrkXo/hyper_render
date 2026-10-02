@@ -1,0 +1,65 @@
+// The panel imports devtools_extensions → dart:js_interop, which only
+// compiles for the web: run with `flutter test --platform chrome`.
+@TestOn('browser')
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hyper_render_devtools_ui/main.dart';
+
+/// Smoke test: with no VM service connected, Demo mode must populate every
+/// tab and the export dialog without throwing.
+void main() {
+  testWidgets('demo mode renders all six tabs and the export dialog',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const HyperRenderInspectorApp());
+    // No VM service in a test: the initial refresh never resolves and its
+    // spinner never settles, so pump a few frames instead of settling.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Demo').first);
+    await tester.pumpAndSettle();
+    expect(find.text('DEMO'), findsOneWidget);
+
+    await tester.tap(find.text('Timeline'));
+    await tester.pumpAndSettle();
+    expect(find.text('demo-renderer'), findsWidgets);
+    expect(find.text('demo-chunk-2'), findsOneWidget);
+
+    await tester.tap(find.text('Selection'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('[12, 40)'), findsOneWidget);
+    expect(find.textContaining('ruby: "かんじ"'), findsWidgets);
+
+    await tester.tap(find.text('CSS Vars'));
+    await tester.pumpAndSettle();
+    expect(find.text('--brand'), findsNWidgets(2));
+
+    // Live edit (demo mode rewrites the sample rows locally).
+    await tester.tap(find.byTooltip('Override --gap'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '20px');
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('20px'), findsOneWidget);
+    expect(find.text('override'), findsOneWidget);
+
+    await tester.tap(find.text('Reset 1 override'));
+    await tester.pumpAndSettle();
+    expect(find.text('12px'), findsOneWidget);
+    expect(find.text('override'), findsNothing);
+
+    await tester.tap(find.byTooltip('Export UDT snapshot (JSON)'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('hyper_render_devtools.snapshot/1'),
+        findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+}

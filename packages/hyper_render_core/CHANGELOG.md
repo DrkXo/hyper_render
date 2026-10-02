@@ -1,5 +1,26 @@
 # Changelog — hyper_render_core
 
+## 1.10.0
+
+### 🆕 New
+
+- **`HyperRenderDebugHooks.onFrameTiming`** — reports each `RenderHyperBox` layout and paint duration in microseconds. Paint is canvas recording time, not raster. It only runs in debug mode and only while the hook is set.
+- **`HyperRenderDebugHooks.onSelectionChanged`** — reports a renderer's selection range when it changes.
+- `RenderHyperBox.debugFragments()` now also includes `globalOffset`, `charLength`, `rubyText` and `rubyHeight`.
+- **`StyleResolver.customPropertyOverrides`** and **`HyperRenderDebugHooks.cssVariableOverrides`** — replace a `--custom-property` value wherever it is declared. Powers DevTools live CSS-variable editing.
+
+### 🐛 Fixes
+
+- **`:root` matched every element.** The pseudo-class matcher had no case for it, so it fell through to "unknown → match". `:root { font-size: 125% }` compounded at every nesting level, `:root { --c: … }` reset any descendant override of `--c`, and every element re-applied the whole `:root` block. It now matches only the document root.
+- **`url()` and `calc()` in stylesheet rules never resolved** (inline `style=""` worked). csslib drops the function name from `UriTerm` / `CalcTerm` spans, the same quirk as `var()` below. This affects `background-image: url(…)` and `width: calc(…)` in `<style>` / `customCss`.
+- **Stylesheet `background` / `background-image` URLs now follow the `<img src>` scheme policy** (`UrlSafety.isSafe`). `<style>` blocks are extracted before HTML sanitization, so `javascript:`, `vbscript:`, `file:`, `data:image/svg` and non-image `data:` URLs are dropped.
+- **`var()` substitution is bounded.** A value that expands past 16 KB (e.g. a `--l1: var(--l0) var(--l0) …` chain in untrusted `<style>`) is treated as invalid instead of allocating gigabytes. A declaration that resolves to nothing is ignored rather than applied empty.
+- **`HtmlToSpanConverter` collapsed `&nbsp;`.** Its whitespace normalization used Dart's `\s`, which includes U+00A0. It now uses the CSS whitespace set, like the rest of the engine.
+- **`FormulaWidget` rendered `x^{2}` as `x^2`.** The braced super/subscript form (the usual LaTeX spelling) now converts to `x²` / `aᵢ`.
+- **Custom-property inheritance no longer copies the full map per element.** With 300 `:root` variables, 2000 elements resolved in ~37 ms instead of ~457 ms.
+- **`var()` in stylesheet rules never resolved.** `<style>` and `customCss` declarations such as `p { color: var(--brand) }` produced nothing, fallback included, because csslib's `VarUsage` span lacks the `var(` prefix. Only inline `style=""` worked. Documents that relied on `var()` in a stylesheet will now render with those values.
+- **Custom properties are now cascaded before `var()` is substituted.** `var()` used to be substituted while declarations were applied, so a `--name` defined by a later, higher-specificity, inline or `!important` declaration on the same element was missed. For example, `p { color: var(--c) } .x { --c: blue }` read the parent's `--c`. The element's final custom properties are now computed first, as in CSS.
+
 ## 1.9.0
 
 ### 🆕 New

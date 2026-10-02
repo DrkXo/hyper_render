@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.0
+
+- **`var()` in `<style>` / `customCss` now resolves** (fix in `hyper_render_core`). It previously produced nothing; only inline `style=""` worked. Pages that used it will now render with those values.
+- **Requires `hyper_render_core` `^1.10.0`.** `HyperViewer` uses the new `StyleResolver.customPropertyOverrides` and `HyperRenderDebugHooks.cssVariableOverrides`.
+- **DevTools live CSS-variable editing** — in debug builds `HyperViewer` listens to `HyperRenderDebugHooks.cssVariableOverrides` and re-parses when `hyper_render_devtools` overrides a `--var`. This is a no-op in release builds.
+
 ## 1.9.1
 
 - **`FlexWrapParentData` was missing from the root barrel's `show` list.** `FlexWrapItem`, `FlexWrapLayout` and `RenderFlexWrap` shipped in 1.9.0, but the parent-data type — part of their public signatures — did not, so it was unreachable via `package:hyper_render/hyper_render.dart`. Found by compile-checking the published 1.9.0 artifacts from a throwaway consumer project. Workaround on 1.9.0: import it from `package:hyper_render_core/hyper_render_core.dart`, which does export it.
