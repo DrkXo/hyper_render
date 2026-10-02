@@ -131,6 +131,25 @@ jobs:
 
           exit $EXIT
 
+      # Sub-packages the root excludes: each one only resolves against its
+      # own pubspec, so analyze it in place after its own pub get.
+      - name: flutter analyze sub-packages
+        if: steps.filter.outputs.any_dart == 'true'
+        run: |
+          FAILED=""
+          for pkg in hyper_render_html hyper_render_markdown hyper_render_highlight \
+                     hyper_render_math hyper_render_clipboard hyper_render_devtools \
+                     hyper_render_epub; do
+            echo "::group::$pkg"
+            (cd "packages/$pkg" && flutter pub get >/dev/null && \
+              flutter analyze --no-pub --fatal-warnings --fatal-infos) || FAILED="$FAILED $pkg"
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then
+            echo "::error::analyze failed in:$FAILED"
+            exit 1
+          fi
+
       - name: Upload analyze report
         if: always() && steps.filter.outputs.any_dart == 'true'
         uses: actions/upload-artifact@v4

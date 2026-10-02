@@ -40,6 +40,8 @@ jobs:
       changed_highlight: ${{ steps.filter.outputs.highlight }}
       changed_clipboard: ${{ steps.filter.outputs.clipboard }}
       changed_devtools:  ${{ steps.filter.outputs.devtools }}
+      changed_math:      ${{ steps.filter.outputs.math }}
+      changed_epub:      ${{ steps.filter.outputs.epub }}
       changed_root:      ${{ steps.filter.outputs.root }}
       changed_any_dart:  ${{ steps.filter.outputs.any_dart }}
     steps:
@@ -60,6 +62,10 @@ jobs:
               - 'packages/hyper_render_clipboard/**'
             devtools:
               - 'packages/hyper_render_devtools/**'
+            math:
+              - 'packages/hyper_render_math/**'
+            epub:
+              - 'packages/hyper_render_epub/**'
             root:
               - 'lib/**'
               - 'test/**'
@@ -190,7 +196,7 @@ jobs:
           needs.path-filter.outputs.changed_html == 'true' ||
           needs.path-filter.outputs.changed_core == 'true'
         working-directory: packages/hyper_render_html
-        run: flutter test --no-pub
+        run: flutter pub get && flutter test --no-pub
 
       - name: Test hyper_render_markdown
         if: >-
@@ -198,7 +204,7 @@ jobs:
           needs.path-filter.outputs.changed_core == 'true'
         working-directory: packages/hyper_render_markdown
         run: |
-          if [ -d test ]; then flutter test --no-pub; else echo "No tests in this package — skipping."; fi
+          if [ -d test ]; then flutter pub get && flutter test --no-pub; else echo "No tests in this package — skipping."; fi
 
       - name: Test hyper_render_highlight
         if: >-
@@ -206,7 +212,7 @@ jobs:
           needs.path-filter.outputs.changed_core == 'true'
         working-directory: packages/hyper_render_highlight
         run: |
-          if [ -d test ]; then flutter test --no-pub; else echo "No tests in this package — skipping."; fi
+          if [ -d test ]; then flutter pub get && flutter test --no-pub; else echo "No tests in this package — skipping."; fi
 
       - name: Test hyper_render_clipboard
         if: >-
@@ -214,7 +220,36 @@ jobs:
           needs.path-filter.outputs.changed_core == 'true'
         working-directory: packages/hyper_render_clipboard
         run: |
-          if [ -d test ]; then flutter test --no-pub; else echo "No tests in this package — skipping."; fi
+          if [ -d test ]; then flutter pub get && flutter test --no-pub; else echo "No tests in this package — skipping."; fi
+
+      - name: Test hyper_render_math
+        if: >-
+          needs.path-filter.outputs.changed_math == 'true' ||
+          needs.path-filter.outputs.changed_core == 'true'
+        working-directory: packages/hyper_render_math
+        run: flutter pub get && flutter test --no-pub
+
+      - name: Test hyper_render_epub
+        if: >-
+          needs.path-filter.outputs.changed_epub == 'true' ||
+          needs.path-filter.outputs.changed_root == 'true' ||
+          needs.path-filter.outputs.changed_core == 'true'
+        working-directory: packages/hyper_render_epub
+        run: flutter pub get && flutter test --no-pub
+
+      - name: Test hyper_render_devtools
+        if: >-
+          needs.path-filter.outputs.changed_devtools == 'true' ||
+          needs.path-filter.outputs.changed_core == 'true'
+        working-directory: packages/hyper_render_devtools
+        run: flutter pub get && flutter test --no-pub
+
+      # The panel imports dart:js_interop: its widget test only compiles for
+      # the web (@TestOn('browser')). ubuntu runners ship Chrome.
+      - name: Test hyper_render_devtools panel (Chrome)
+        if: needs.path-filter.outputs.changed_devtools == 'true'
+        working-directory: packages/hyper_render_devtools/devtools_ui
+        run: flutter pub get && flutter test --no-pub --platform chrome
 
       - name: Upload test results
         if: failure()
