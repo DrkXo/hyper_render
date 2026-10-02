@@ -12,6 +12,7 @@
 ### 🐛 Fixes
 
 - **`var()` in stylesheet rules never resolved.** `<style>` and `customCss` declarations such as `p { color: var(--brand) }` produced nothing, fallback included, because csslib's `VarUsage` span lacks the `var(` prefix. Only inline `style=""` worked. Documents that relied on `var()` in a stylesheet will now render with those values.
+- **Custom properties are now cascaded before `var()` is substituted.** `var()` used to be substituted while declarations were applied, so a `--name` defined by a later, higher-specificity, inline or `!important` declaration on the same element was missed. For example, `p { color: var(--c) } .x { --c: blue }` read the parent's `--c`. The element's final custom properties are now computed first, as in CSS.
 
 ## 1.9.0
 

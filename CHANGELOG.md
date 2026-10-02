@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **`var()` in `<style>` / `customCss` now resolves** (fix in `hyper_render_core`). It previously produced nothing; only inline `style=""` worked. Pages that used it will now render with those values.
+- **Requires `hyper_render_core` `^1.10.0`.** `HyperViewer` uses the new `StyleResolver.customPropertyOverrides` and `HyperRenderDebugHooks.cssVariableOverrides`.
 - **DevTools live CSS-variable editing** — in debug builds `HyperViewer` listens to `HyperRenderDebugHooks.cssVariableOverrides` and re-parses when `hyper_render_devtools` overrides a `--var`. This is a no-op in release builds.
 
 ## 1.9.1

@@ -64,6 +64,31 @@ void main() {
     expect(paragraphColor(tester), const Color(0xFF00FF00));
   });
 
+  testWidgets('compute() isolate parse receives the overrides', (tester) async {
+    // Default native config parses virtualized HTML in a real isolate,
+    // where HyperRenderDebugHooks' statics are NOT shared — the overrides
+    // must travel in the args record. Isolates don't run under FakeAsync.
+    HyperRenderDebugHooks.cssVariableOverrides.value = {'--brand': '#00ff00'};
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: HyperViewer(
+          html: html,
+          mode: HyperRenderMode.virtualized,
+          renderConfig: HyperRenderConfig(useMicrotaskParsing: false),
+        ),
+      ),
+    ));
+    for (var i = 0;
+        i < 50 && find.byType(HyperRenderWidget).evaluate().isEmpty;
+        i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(paragraphColor(tester), const Color(0xFF00FF00));
+  });
+
   testWidgets('a disposed viewer stops listening', (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(body: HyperViewer(html: html, mode: HyperRenderMode.sync)),

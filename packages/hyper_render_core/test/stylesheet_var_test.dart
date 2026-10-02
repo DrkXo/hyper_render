@@ -38,6 +38,61 @@ void main() {
     expect(p.style.color, const Color(0xFF0000FF));
   });
 
+  group('cascade order — custom properties resolve before var()', () {
+    BlockNode resolveX(String css, {String? inline}) {
+      final p = BlockNode.p(children: [TextNode('t')]);
+      p.attributes['class'] = 'x';
+      if (inline != null) p.attributes['style'] = inline;
+      StyleResolver()
+        ..parseCss(css)
+        ..resolveStyles(DocumentNode(children: [p]));
+      return p;
+    }
+
+    test('definition in a higher-specificity rule', () {
+      final p = resolveX('p { color: var(--c); } .x { --c: #0000ff; }');
+      expect(p.style.color, const Color(0xFF0000FF));
+    });
+
+    test('definition after use in the same rule', () {
+      final p = resolveX('p { color: var(--c); --c: #0000ff; }');
+      expect(p.style.color, const Color(0xFF0000FF));
+    });
+
+    test('a lower-specificity definition does not win mid-cascade', () {
+      // Rules apply in specificity order: p{--c:red}, then .x{color},
+      // then #id-less .x.x{--c:blue}. color must see the FINAL --c.
+      final p = resolveX('p { --c: #ff0000; } .x { color: var(--c); } '
+          '.x.x { --c: #0000ff; }');
+      expect(p.style.color, const Color(0xFF0000FF));
+    });
+
+    test('inline and !important definitions', () {
+      expect(
+        resolveX('p { color: var(--c); }', inline: '--c: #0000ff').style.color,
+        const Color(0xFF0000FF),
+      );
+      expect(
+        resolveX('p { color: var(--c); } p { --c: #0000ff !important; }',
+                inline: '--c: #ff0000')
+            .style
+            .color,
+        const Color(0xFF0000FF),
+      );
+    });
+
+    test('children inherit the final value', () {
+      final span = InlineNode(tagName: 'span', children: [TextNode('s')]);
+      final p = BlockNode.p(children: [span]);
+      p.attributes['class'] = 'x';
+      StyleResolver()
+        ..parseCss('span { color: var(--c); } p { --c: #ff0000; } '
+            '.x { --c: #0000ff; }')
+        ..resolveStyles(DocumentNode(children: [p]));
+      expect(span.style.color, const Color(0xFF0000FF));
+    });
+  });
+
   group('customPropertyOverrides (DevTools live edit)', () {
     BlockNode resolveWith(String css, Map<String, String> overrides) {
       final p = BlockNode.p(children: [TextNode('t')]);

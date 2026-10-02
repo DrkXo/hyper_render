@@ -142,6 +142,16 @@ class StyleResolver {
   /// [HyperRenderDebugHooks.cssVariableOverrides].
   Map<String, String> customPropertyOverrides = const {};
 
+  /// Whether any parsed rule declares a custom property. Lets elements in
+  /// documents without them skip the custom-property pre-pass entirely.
+  bool _rulesDeclareCustomProperties = false;
+
+  /// Final custom-property values of the element being resolved, computed
+  /// before its other declarations (see [_cascadeCustomProperties]). While
+  /// set, every `--name` write in the cascade stores this final value, so
+  /// no `var()` can observe an intermediate one.
+  Map<String, String>? _elementCustomProps;
+
   // ── Rule index for O(1) candidate lookup ────────────────────────────────
   // After _extractRules, rules are partitioned by their "key" selector part:
   //   _rulesByTag['p']    — rules whose rightmost simple part is the element "p"
@@ -374,6 +384,9 @@ class StyleResolver {
     _rulesByClass.clear();
     _rulesById.clear();
     _universalRules.clear();
+    _rulesDeclareCustomProperties = _cssRules.any((r) =>
+        r.declarations.keys.any(_isCustomProperty) ||
+        r.importantDeclarations.keys.any(_isCustomProperty));
 
     for (final rule in _cssRules) {
       // Extract the rightmost simple selector part (after any combinator).
@@ -641,6 +654,17 @@ class StyleResolver {
     //    Use O(1) candidate lookup via _getCandidateRules to avoid iterating
     //    over every rule for every node (previously O(Rules × Nodes)).
     final candidates = _getCandidateRules(node);
+
+    // 1b. Custom properties first. var() is substituted while declarations
+    //     are applied, so a var() met before a later (or higher-specificity,
+    //     or !important, or inline) `--name` declaration would otherwise
+    //     resolve against the parent's value. CSS computes custom properties
+    //     before substituting them; do the same.
+    final cascadedCustom = _cascadeCustomProperties(node, candidates);
+    // Assigned unconditionally so a previous node's map can never leak in.
+    _elementCustomProps = cascadedCustom;
+    if (cascadedCustom != null) style.customProperties.addAll(cascadedCustom);
+
     for (final rule in candidates) {
       if (rule.declarations.isNotEmpty &&
           _matchesSelector(node, rule.selector)) {
@@ -676,6 +700,8 @@ class StyleResolver {
         );
       }
     }
+
+    _elementCustomProps = null;
 
     // 4. Inherit from parent
     _applyInheritance(style, parentStyle);
@@ -1264,6 +1290,53 @@ class StyleResolver {
     return result;
   }
 
+  static bool _isCustomProperty(String property) => property.startsWith('--');
+
+  /// The custom properties [node] ends up with, in cascade order (rules by
+  /// specificity, inline style, then `!important` rules), with
+  /// [customPropertyOverrides] applied. Null when nothing declares any.
+  Map<String, String>? _cascadeCustomProperties(
+      UDTNode node, List<CssRule> candidates) {
+    final inline = node.attributes['style'];
+    final inlineHasCustom = inline != null && inline.contains('--');
+    if (!_rulesDeclareCustomProperties && !inlineHasCustom) return null;
+
+    final out = <String, String>{};
+    void take(String property, String value) {
+      if (_isCustomProperty(property)) {
+        out[property] = customPropertyOverrides[property] ?? value;
+      }
+    }
+
+    if (_rulesDeclareCustomProperties) {
+      for (final rule in candidates) {
+        if (rule.declarations.isNotEmpty &&
+            rule.declarations.keys.any(_isCustomProperty) &&
+            _matchesSelector(node, rule.selector)) {
+          rule.declarations.forEach(take);
+        }
+      }
+    }
+    if (inlineHasCustom) {
+      for (final decl in _splitDeclarations(inline)) {
+        final colonIdx = decl.indexOf(':');
+        if (colonIdx <= 0) continue;
+        final value = decl.substring(colonIdx + 1).trim();
+        if (value.isNotEmpty) take(decl.substring(0, colonIdx).trim(), value);
+      }
+    }
+    if (_rulesDeclareCustomProperties) {
+      for (final rule in candidates) {
+        if (rule.importantDeclarations.isNotEmpty &&
+            rule.importantDeclarations.keys.any(_isCustomProperty) &&
+            _matchesSelector(node, rule.selector)) {
+          rule.importantDeclarations.forEach(take);
+        }
+      }
+    }
+    return out.isEmpty ? null : out;
+  }
+
   /// Apply CSS declarations to a style
   ComputedStyle _applyDeclarations(
     ComputedStyle style,
@@ -1311,8 +1384,9 @@ class StyleResolver {
   }) {
     // CSS Custom Properties (--name: value)
     if (property.startsWith('--')) {
-      style.customProperties[property] =
-          customPropertyOverrides[property] ?? value;
+      style.customProperties[property] = _elementCustomProps?[property] ??
+          customPropertyOverrides[property] ??
+          value;
       return style;
     }
 
