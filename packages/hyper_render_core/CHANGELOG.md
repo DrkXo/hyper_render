@@ -1,6 +1,6 @@
 # Changelog — hyper_render_core
 
-## Unreleased (1.10.0)
+## 1.10.0
 
 ### 🆕 New
 

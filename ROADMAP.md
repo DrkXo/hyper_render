@@ -8,9 +8,11 @@ This document outlines the architectural roadmap for **HyperRender** to become t
 
 | Version | Target Date | Strategic Focus | Key Differentiators |
 | :--- | :--- | :--- | :--- |
-| **v1.7.0** | Current | **Production Hardening & Drop-in Migration** | Single RenderObject, 100% WASM support, 160/160 pub score, 30s `flutter_html` drop-in layer. |
-| **v1.8.0** | Q3 2026 | **AI & LLM Token-Streaming Engine** | Frame-throttled token updates with adaptive backoff, transient syntax auto-repair, auto-scroll locking. Tail-only layout invalidation remains a separate, unscheduled epic — see below. |
-| **v1.9.0** | Q4 2026 | **Native Vector Diagramming & Headless Export** | Pure Canvas/Vector Mermaid.js & GraphViz (Zero-WebView), Headless Image & PDF byte stream generator. |
+| **v1.7.0** | Shipped | **Production Hardening & Drop-in Migration** | Single RenderObject, 100% WASM support, 160/160 pub score, 30s `flutter_html` drop-in layer. |
+| **v1.8.0** | Shipped | **AI & LLM Token-Streaming Engine** | Frame-throttled token updates with adaptive backoff, transient syntax auto-repair, auto-scroll locking. Tail-only layout invalidation remains a separate, unscheduled epic — see below. |
+| **v1.9.0** | Shipped | **Wrapping Flexbox** | `flex-wrap: wrap` on a dedicated `RenderFlexWrap` (#15). |
+| **v1.10.0** | Current | **DevTools v2 & Stylesheet CSS Correctness** | Timeline / Selection / live CSS-variable / snapshot DevTools tabs; stylesheet `var()`, `url()`, `calc()` and `:root` fixed. |
+| **Next** | Unscheduled | **Native Vector Diagramming & Headless Export** | Pure Canvas/Vector Mermaid.js & GraphViz (Zero-WebView), Headless Image & PDF byte stream generator. |
 | **v2.0.0** | Q1 2027 | **Interactive Editorial & Magazine Typography** | Medium-style Text Annotation/Highlighting layer, Multi-column layout (`column-count`), Z-Index Stacking Context, Vertical Text (`writing-mode: vertical-rl`). |
 
 ---
@@ -32,7 +34,7 @@ This document outlines the architectural roadmap for **HyperRender** to become t
 
 ---
 
-## 📊 v1.9.0: Native Vector Diagramming & Headless Export (WebView Replacement)
+## 📊 Next (unscheduled): Native Vector Diagramming & Headless Export (WebView Replacement)
 
 ### 1. Native Mermaid.js & GraphViz Vector Engine (Zero-WebView)
 - **Problem**: Technical docs, GitHub clients, and EdTech apps embed WebViews solely for Mermaid diagrams, adding 50MB+ RAM overhead per instance with poor gesture response.

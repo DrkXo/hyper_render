@@ -1,6 +1,6 @@
 # Changelog — hyper_render_devtools
 
-## [Unreleased]
+## [1.8.0] - 2026-10-02
 
 ### 🐛 Fixes
 - **The DevTools panel can load and connect now** (#17, thanks @DrkXo). `extension/devtools/config.yaml` used a display name that `devtools_extensions` rejects. Separately, the panel looked for its data under a `result` key that `vm_service` had already unwrapped, so it always showed "Could not connect".

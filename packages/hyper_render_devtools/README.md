@@ -21,14 +21,14 @@ Add the package to your app's `dev_dependencies` (debug-only usage):
 
 ```yaml
 dev_dependencies:
-  hyper_render_devtools: ^1.7.0
+  hyper_render_devtools: ^1.8.0
 ```
 
 Or add to `dependencies` if you want it available in profile builds:
 
 ```yaml
 dependencies:
-  hyper_render_devtools: ^1.7.0
+  hyper_render_devtools: ^1.8.0
 ```
 
 ## Usage

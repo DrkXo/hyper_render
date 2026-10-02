@@ -29,7 +29,7 @@ are silently ignored.
 | `text-shadow` | ✅ Multiple shadows, blur supported |
 | `filter` / `backdrop-filter` | ✅ blur, brightness, contrast supported |
 | `@keyframes` | ✅ Parsed from `<style>` tags automatically |
-| `background-image` | ✅ url() and `linear-gradient()` supported |
+| `background-image` | ⚠️ `linear-gradient()` paints; `url()` is parsed (and scheme-checked) but no background image is painted |
 | `background-size` | ✅ cover, contain, fill supported |
 | `background-position` | ✅ Supported since v1.3.1 |
 | `background-repeat` | ✅ repeat/repeat-x/repeat-y/no-repeat/space/round supported since v1.3.1 |
