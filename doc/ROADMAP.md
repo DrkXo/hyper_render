@@ -32,6 +32,8 @@ For detailed CSS property tracking, see [`CSS_PROPERTIES_MATRIX.md`](CSS_PROPERT
 - Modular package architecture: `hyper_render_core`, `hyper_render_html`,
   `hyper_render_markdown`, `hyper_render_highlight`, `hyper_render_clipboard`
 - **`hyper_render_devtools` v1.0.0** — UDT Tree inspector, Computed Style panel, Layout fragment/line data, demo mode (no live app required); published to pub.dev
+- **`hyper_render_devtools` v1.8.0** (2026-10-02) — the panel actually connects now (#17), plus Timeline, Selection debugger, live CSS-variable editing and JSON snapshot export. Requires `hyper_render_core` 1.10.0.
+- **Stylesheet CSS correctness** (core 1.10.0) — `var()`, `url()`, `calc()` in `<style>` / `customCss` now resolve (inline-only before), custom properties cascade before substitution, `:root` matches only the document root, `var()` expansion capped.
 - **Golden test coverage** — Float layout, RTL/BiDi, CJK + Ruby suites pinned to ubuntu-22.04 + Flutter 3.29.2 + Noto fonts for pixel-stable CI
 - **Layout regression CI tracking** — 6 fixtures (simple paragraph → 100-paragraph article) measured against a 16 ms (60 FPS) budget on every PR. Results are recorded and posted to the PR, but are **advisory and do not block the build**: GitHub runners use software rendering and are 2–3× slower than the target hardware, so a hard gate there would fail on runner noise rather than on real regressions. Enforcing this properly requires release-mode measurement on a real device, which is not yet wired up.
 - **3-pipeline CI architecture** — Pre-flight (format + analyze, < 2 min) · Core Validation (per-package selective tests on PR, full 3-OS × 2-channel matrix on push) · Visual/Performance gates (golden + benchmark)
@@ -143,7 +145,7 @@ packages/
   hyper_render_clipboard/  # Selection & clipboard
   hyper_render_highlight/  # Syntax highlighting
   hyper_render_media/      # NEW: video, audio, iframe, custom widget injection
-  hyper_render_devtools/   # DevTools extension (existing, being completed)
+  hyper_render_devtools/   # DevTools extension (shipped; v1.8.0 adds timeline/selection/live CSS vars/export)
 ```
 
 Scope:
@@ -173,14 +175,19 @@ Remaining v2.0 scope:
 
 ### hyper_render_devtools — v2.x Improvements
 
-**Status**: ✅ v1.0.0 shipped — UDT Tree inspector, Computed Style panel, Layout fragment/line data, demo mode
+**Status**: ✅ v1.0.0 shipped; ✅ **v1.8.0 shipped 2026-10-02** with the v2.x scope below (needs `hyper_render_core` ^1.10.0).
 
-v2.x scope (unreleased, on `feat/devtools-v2`; needs `hyper_render_core` 1.10.0):
+v2.x scope:
 - [x] Performance timeline (layout + paint timing per renderer = per virtualized chunk; paint is canvas recording time, not GPU raster)
 - [x] Live CSS variable inspector (lists where each `--var` is defined; ✎ overrides it and every `HyperViewer` re-resolves live. A bare `HyperRenderWidget` with a prebuilt document is not re-resolved. Building it surfaced that `var()` in stylesheet rules had never resolved — fixed in core 1.10.0)
 - [x] Selection debug panel (fragment boundaries as global character ranges, selection overlap, ruby text/height/position)
 - [x] Export UDT snapshot to JSON for offline analysis
+
+Still open:
 - [ ] Float region visualizer — was listed as shipped in v1.0.0 but never existed; neither the panel nor the in-app `debugShowHyperRenderBounds` overlay draws float rects
+- [ ] Live CSS-variable edits only re-render `HyperViewer`s; a bare `HyperRenderWidget` built from a prebuilt document is not re-resolved
+- [ ] Show `var()` *use* sites (only definition sites are listed: `var()` is substituted at resolve time)
+- [ ] Timeline measures canvas *recording* time, not GPU raster time
 
 ---
 
@@ -230,6 +237,8 @@ Items under consideration, not yet scheduled:
 | ~~`object-fit` for `<img>`~~ | ✅ Completed in v1.3.3 |
 | ~~`aspect-ratio`~~ | ✅ Completed in v1.4.0 — `W/H` and bare-number syntax, applied to `<img>`/`<video>` sizing |
 | Server-side UDT snapshot | Pre-render on server, hydrate on client |
+| `min()` / `max()` / `clamp()` | Now reach the resolver intact from stylesheets (1.10.0) but are not evaluated — only `calc()` is |
+| Layout warning "More child widgets than fragments" | Logged by `RenderHyperBox` for `info-box` / `rating` nodes in one demo; harmless so far, root cause not traced |
 
 ---
 

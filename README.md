@@ -228,6 +228,31 @@ HyperViewer(html: '''
 ''')
 ```
 
+CSS custom properties work in `<style>` blocks and `customCss`, not just inline
+(as of 1.10.0), and `url()` / `calc()` too:
+
+```dart
+HyperViewer(
+  html: '<p>Themed text</p>',
+  customCss: ':root { --brand: #6750A4; } p { color: var(--brand); padding: calc(8px * 2); }',
+)
+```
+
+### DevTools — Inspect, Profile, Live-Edit
+
+Add [`hyper_render_devtools`](https://pub.dev/packages/hyper_render_devtools) to
+inspect any `HyperViewer` in Flutter DevTools: the UDT tree and computed styles,
+**layout/paint timing per renderer** (each virtualized chunk is one), a
+**selection debugger** (fragment boundaries, ruby offsets), **live `--var`
+editing** that re-renders instantly, and a **JSON snapshot export**.
+
+```dart
+void main() {
+  assert(() { HyperRenderDevtools.register(); return true; }()); // debug only
+  runApp(const MyApp());
+}
+```
+
 ### CSS `@keyframes` Animation
 
 ```html
@@ -477,7 +502,7 @@ HTML / Markdown / Quill Delta
 | [`hyper_render_html`](https://pub.dev/packages/hyper_render_html) | [![pub](https://img.shields.io/pub/v/hyper_render_html.svg)](https://pub.dev/packages/hyper_render_html) | HTML + CSS parser |
 | [`hyper_render_markdown`](https://pub.dev/packages/hyper_render_markdown) | [![pub](https://img.shields.io/pub/v/hyper_render_markdown.svg)](https://pub.dev/packages/hyper_render_markdown) | Markdown adapter (GFM) |
 | [`hyper_render_highlight`](https://pub.dev/packages/hyper_render_highlight) | [![pub](https://img.shields.io/pub/v/hyper_render_highlight.svg)](https://pub.dev/packages/hyper_render_highlight) | Syntax highlighting for `<code>` / `<pre>` blocks |
-| [`hyper_render_devtools`](https://pub.dev/packages/hyper_render_devtools) | [![pub](https://img.shields.io/pub/v/hyper_render_devtools.svg)](https://pub.dev/packages/hyper_render_devtools) | Flutter DevTools extension — UDT inspector, computed styles, layout fragments |
+| [`hyper_render_devtools`](https://pub.dev/packages/hyper_render_devtools) | [![pub](https://img.shields.io/pub/v/hyper_render_devtools.svg)](https://pub.dev/packages/hyper_render_devtools) | Flutter DevTools extension — UDT inspector, computed styles, layout fragments, **layout/paint timeline, selection debugger, live CSS-variable editing, JSON snapshot export** |
 
 ### Optional add-ons
 

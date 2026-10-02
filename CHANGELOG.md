@@ -4,6 +4,8 @@
 
 - **`var()` in `<style>` / `customCss` now resolves** (fix in `hyper_render_core`). It previously produced nothing; only inline `style=""` worked. Pages that used it will now render with those values.
 - **`url()` and `calc()` in `<style>` / `customCss` now resolve too, and `:root` matches only the document root** (it used to match every element, so `:root { font-size: 125% }` compounded per nesting level). Stylesheet `background` URLs follow the `<img src>` scheme policy, and `var()` expansion is capped so a hostile `<style>` cannot exhaust memory. Details: `hyper_render_core` 1.10.0 changelog and `doc/MIGRATION_GUIDE.md`.
+- **Fixes in classes re-exported from core:** `HtmlToSpanConverter` no longer collapses `&nbsp;`, and `FormulaWidget` converts the braced forms `x^{2}` / `a_{i}`.
+- **`hyper_render_devtools` 1.8.0** pairs with this release: the panel now connects (it never did before), plus Timeline, Selection, CSS Vars (live editing) and snapshot-export tabs.
 - **Requires `hyper_render_core` `^1.10.0`.** `HyperViewer` uses the new `StyleResolver.customPropertyOverrides` and `HyperRenderDebugHooks.cssVariableOverrides`.
 - **DevTools live CSS-variable editing** — in debug builds `HyperViewer` listens to `HyperRenderDebugHooks.cssVariableOverrides` and re-parses when `hyper_render_devtools` overrides a `--var`. This is a no-op in release builds.
 

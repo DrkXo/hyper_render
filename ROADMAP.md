@@ -11,7 +11,7 @@ This document outlines the architectural roadmap for **HyperRender** to become t
 | **v1.7.0** | Shipped | **Production Hardening & Drop-in Migration** | Single RenderObject, 100% WASM support, 160/160 pub score, 30s `flutter_html` drop-in layer. |
 | **v1.8.0** | Shipped | **AI & LLM Token-Streaming Engine** | Frame-throttled token updates with adaptive backoff, transient syntax auto-repair, auto-scroll locking. Tail-only layout invalidation remains a separate, unscheduled epic — see below. |
 | **v1.9.0** | Shipped | **Wrapping Flexbox** | `flex-wrap: wrap` on a dedicated `RenderFlexWrap` (#15). |
-| **v1.10.0** | Current | **DevTools v2 & Stylesheet CSS Correctness** | Timeline / Selection / live CSS-variable / snapshot DevTools tabs; stylesheet `var()`, `url()`, `calc()` and `:root` fixed. |
+| **v1.10.0** | Shipped 2026-10-02 | **DevTools v2 & Stylesheet CSS Correctness** | Timeline / Selection / live CSS-variable / snapshot DevTools tabs; stylesheet `var()`, `url()`, `calc()` and `:root` fixed. |
 | **Next** | Unscheduled | **Native Vector Diagramming & Headless Export** | Pure Canvas/Vector Mermaid.js & GraphViz (Zero-WebView), Headless Image & PDF byte stream generator. |
 | **v2.0.0** | Q1 2027 | **Interactive Editorial & Magazine Typography** | Medium-style Text Annotation/Highlighting layer, Multi-column layout (`column-count`), Z-Index Stacking Context, Vertical Text (`writing-mode: vertical-rl`). |
 
@@ -90,6 +90,6 @@ This document outlines the architectural roadmap for **HyperRender** to become t
 ---
 
 ## 📈 Quality & Performance Guardrails
-- **Test Coverage**: Maintain >= 70% branch coverage and 100% pass rate on all CI suites (>1,200 tests).
+- **Test Coverage**: Maintain >= 70% line coverage (root + core measured at 76.9% for 1.10.0) and 100% pass rate on all CI suites (>2,400 tests).
 - **Pub Score**: Guarantee 160/160 points on every release.
 - **Zero Allocations in Paint Loop**: Strict enforcement of pre-allocated static/cached `Paint` objects and reusable path buffers.
