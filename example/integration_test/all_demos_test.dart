@@ -65,6 +65,12 @@ const _hubItems = <String>[
   'WebView Fallback',
 ];
 
+/// Resume point: skip every home demo before this title
+/// (`--dart-define=DEMO_FROM="Comparison & Performance"`). A macOS window
+/// that is fully covered by another app stops receiving frames, which stalls
+/// the run; this lets you continue from where it stopped.
+const _demoFrom = String.fromEnvironment('DEMO_FROM');
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -114,7 +120,9 @@ void main() {
     }
 
     var opened = 0;
-    for (final title in _homeDemos) {
+    final start = _demoFrom.isEmpty ? 0 : _homeDemos.indexOf(_demoFrom);
+    expect(start, greaterThanOrEqualTo(0), reason: 'unknown DEMO_FROM');
+    for (final title in _homeDemos.skip(start)) {
       await open(title, fromHome: true);
       opened++;
       final subItems =
@@ -133,7 +141,7 @@ void main() {
     for (final e in errors) {
       debugPrint('DEMO_ERROR $e');
     }
-    expect(opened, _homeDemos.length);
+    expect(opened, _homeDemos.length - start);
     expect(errors, isEmpty);
   });
 }
