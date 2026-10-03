@@ -64,10 +64,26 @@ final clipboardHandler = SuperClipboardHandler();
 
 The most common use case is integrating with `HyperViewer` to enable image clipboard operations on rendered HTML content:
 
+`HyperViewer` has no clipboard parameter. Images reach the handler through `HyperImage`, which `HyperViewer` renders for you when you return it from `widgetBuilder`:
+
 ```dart
 import 'package:flutter/material.dart';
 import 'package:hyper_render/hyper_render.dart';
 import 'package:hyper_render_clipboard/hyper_render_clipboard.dart';
+
+/// `HyperViewer` has no clipboard parameter: hand its images to [HyperImage].
+HyperWidgetBuilder clipboardImageBuilder(ImageClipboardHandler handler) =>
+    (node) {
+      if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+        return HyperImage(
+          src: node.src!,
+          width: node.intrinsicWidth ?? node.style.width,
+          height: node.intrinsicHeight ?? node.style.height,
+          clipboardHandler: handler,
+        );
+      }
+      return null; // everything else renders as usual
+    };
 
 class MyContentPage extends StatelessWidget {
   const MyContentPage({super.key});
@@ -82,7 +98,7 @@ class MyContentPage extends StatelessWidget {
           <p>Long-press images to copy, save, or share:</p>
           <img src="https://example.com/image.png" alt="Example">
         ''',
-        imageClipboardHandler: SuperClipboardHandler(),
+        widgetBuilder: clipboardImageBuilder(SuperClipboardHandler()),
       ),
     );
   }
@@ -91,20 +107,15 @@ class MyContentPage extends StatelessWidget {
 
 ### With Custom Context Menu
 
-Handle image long-press events to show a custom context menu:
+`HyperImage.onImageAction` receives the chosen action, so you can show your own menu or intercept an action:
 
 ```dart
-HyperViewer(
-  html: htmlContent,
-  imageClipboardHandler: SuperClipboardHandler(),
-  onImageLongPress: (imageUrl, handler) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => _ImageActionSheet(
-        imageUrl: imageUrl,
-        handler: handler,
-      ),
-    );
+HyperImage(
+  src: imageUrl,
+  clipboardHandler: SuperClipboardHandler(),
+  onImageAction: (action, url, context) async {
+    // Return true when you handled it; false falls back to the handler.
+    return false;
   },
 )
 ```
@@ -426,7 +437,7 @@ class _MyPageState extends State<MyPage> {
   Widget build(BuildContext context) {
     return HyperViewer(
       html: htmlContent,
-      imageClipboardHandler: _handler,
+      widgetBuilder: clipboardImageBuilder(_handler),
     );
   }
 }
@@ -784,7 +795,7 @@ class _MyWidgetState extends State<MyWidget> {
   Widget build(BuildContext context) {
     return HyperViewer(
       html: content,
-      imageClipboardHandler: _handler,
+      widgetBuilder: clipboardImageBuilder(_handler),
     );
   }
 }

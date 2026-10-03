@@ -137,8 +137,11 @@ class _AiStreamingDemoState extends State<AiStreamingDemo> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   alignment: WrapAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    // Wrap, not Row: three buttons need ~382px and overflowed a
+                    // 390pt-wide phone by 21px.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         ElevatedButton.icon(
                           onPressed: _startSimulation,
@@ -151,7 +154,6 @@ class _AiStreamingDemoState extends State<AiStreamingDemo> {
                                 horizontal: 12, vertical: 8),
                           ),
                         ),
-                        const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: _stopSimulation,
                           icon: const Icon(Icons.stop, size: 18),
@@ -161,7 +163,6 @@ class _AiStreamingDemoState extends State<AiStreamingDemo> {
                                 horizontal: 12, vertical: 8),
                           ),
                         ),
-                        const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: _simulateError,
                           icon: const Icon(Icons.warning_amber, size: 18),

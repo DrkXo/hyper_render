@@ -249,6 +249,35 @@ void main() {
       }
     });
 
+    testWidgets(
+        'a body color beats html { color: … !important } (an element\'s '
+        'own declaration beats what it inherits)', (t) async {
+      final px = await _shoot(t,
+          brightness: Brightness.light,
+          surface: Colors.black,
+          css: 'html { color: #ff0000 !important; } body { color: #ffffff; }');
+      expect(px.light, greaterThan(200), reason: '$px');
+      expect(px.red, lessThan(50), reason: '$px');
+    });
+
+    testWidgets('html { color: … !important } applies when body sets none',
+        (t) async {
+      final px = await _shoot(t,
+          brightness: Brightness.light,
+          surface: Colors.black,
+          css: 'html { color: #ffffff !important; }');
+      expect(px.light, greaterThan(200), reason: '$px');
+    });
+
+    testWidgets(':root !important does not beat a plain body color', (t) async {
+      final px = await _shoot(t,
+          brightness: Brightness.light,
+          surface: Colors.black,
+          css: ':root { color: #ff0000 !important; } body { color: #ffffff; }');
+      expect(px.light, greaterThan(200), reason: '$px');
+      expect(px.red, lessThan(50), reason: '$px');
+    });
+
     testWidgets('html, body { color } selector list is honoured', (t) async {
       final px = await _shoot(t,
           brightness: Brightness.light,
@@ -357,6 +386,43 @@ void main() {
           in t.widgetList<HyperRenderWidget>(find.byType(HyperRenderWidget))) {
         expect(w.document.children.first.style.color, onSurface);
       }
+    });
+
+    testWidgets(
+        'markdown in virtualized mode (sync fallback) themes and '
+        'survives a toggle', (t) async {
+      Widget app(Brightness b) => MaterialApp(
+            theme: ThemeData(brightness: b),
+            home: const Scaffold(
+              body: HyperViewer.markdown(
+                markdown: 'Hello **world**',
+                mode: HyperRenderMode.virtualized,
+              ),
+            ),
+          );
+      await t.pumpWidget(app(Brightness.dark));
+      await t.pumpAndSettle();
+      UDTNode? firstText;
+      void walk(UDTNode n) {
+        if (n.tagName == '#text') firstText ??= n;
+        n.children.forEach(walk);
+      }
+
+      for (final w
+          in t.widgetList<HyperRenderWidget>(find.byType(HyperRenderWidget))) {
+        walk(w.document);
+      }
+      expect(firstText!.style.color, onSurface);
+
+      await t.pumpWidget(app(Brightness.light));
+      await t.pumpAndSettle();
+      firstText = null;
+      for (final w
+          in t.widgetList<HyperRenderWidget>(find.byType(HyperRenderWidget))) {
+        walk(w.document);
+      }
+      expect(firstText!.style.color, const Color(0xFF1F2937),
+          reason: 'a silent re-parse must apply the new theme');
     });
 
     testWidgets('paged mode keeps its page across a theme toggle', (t) async {

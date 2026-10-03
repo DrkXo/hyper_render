@@ -21,13 +21,26 @@ dependencies:
 import 'package:hyper_render/hyper_render.dart';
 import 'package:hyper_render_clipboard/hyper_render_clipboard.dart';
 
+final clipboard = SuperClipboardHandler();
+
 HyperViewer(
   html: '<img src="https://example.com/photo.jpg">',
-  imageClipboardHandler: SuperClipboardHandler(),
+  // HyperViewer has no clipboard parameter: hand images to HyperImage yourself.
+  widgetBuilder: (node) {
+    if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+      return HyperImage(
+        src: node.src!,
+        width: node.intrinsicWidth ?? node.style.width,
+        height: node.intrinsicHeight ?? node.style.height,
+        clipboardHandler: clipboard,
+      );
+    }
+    return null; // everything else renders as usual
+  },
 )
 ```
 
-Long-pressing an image shows Copy / Save / Share options automatically.
+Long-pressing a `HyperImage` shows Copy / Save / Share. Without a `clipboardHandler` the built-in images offer URL copy only.
 
 ### Standalone
 

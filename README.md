@@ -536,14 +536,16 @@ dependencies:
 ```dart
 import 'package:hyper_render_epub/hyper_render_epub.dart';
 
-// 1. Open EPUB from file bytes or asset
-final book = await EpubBook.openBytes(epubBytes);
+// 1. Open the .epub (any Uint8List: File, asset, network)
+final book = await EpubBook.open(epubBytes);
 
-// 2. Render book with chapter navigation
+// 2. A controller holds the position; dispose() it when done
+final controller = EpubReaderController(book: book);
+
+// 3. Render the current chapter; drive next()/previous()/goTo() from your own UI
 EpubReader(
-  book: book,
-  controller: EpubReaderController(),
-  onChapterChanged: (chapter) => print('Now reading: ${chapter.title}'),
+  controller: controller,
+  textColor: null, // null follows the theme; set it for a sepia/paper page
 )
 ```
 
@@ -557,9 +559,15 @@ dependencies:
 ```dart
 import 'package:hyper_render_clipboard/hyper_render_clipboard.dart';
 
+// HyperViewer has no clipboard parameter: hand images to HyperImage yourself.
 HyperViewer(
   html: html,
-  imageClipboardHandler: SuperClipboardHandler(),
+  widgetBuilder: (node) {
+    if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+      return HyperImage(src: node.src!, clipboardHandler: SuperClipboardHandler());
+    }
+    return null;
+  },
 )
 ```
 

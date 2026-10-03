@@ -81,18 +81,18 @@ class ClipboardExamplePage extends StatelessWidget {
           ],
         ),
       ),
-      // In a real app:
+      // In a real app (HyperViewer has no clipboard parameter; return a
+      // HyperImage from widgetBuilder):
       // body: HyperViewer(
-      //   content: htmlWithImages,
-      //   imageClipboardHandler: SuperClipboardHandler(),
-      //   onImageLongPress: (imageUrl, handler) {
-      //     showModalBottomSheet(
-      //       context: context,
-      //       builder: (context) => ImageActionSheet(
-      //         imageUrl: imageUrl,
-      //         handler: handler,
-      //       ),
-      //     );
+      //   html: htmlWithImages,
+      //   widgetBuilder: (node) {
+      //     if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+      //       return HyperImage(
+      //         src: node.src!,
+      //         clipboardHandler: SuperClipboardHandler(),
+      //       );
+      //     }
+      //     return null;
       //   },
       // ),
     );
@@ -110,7 +110,15 @@ class ClipboardExamplePage extends StatelessWidget {
 ///   Widget build(BuildContext context) {
 ///     return HyperViewer(
 ///       html: '<img src="https://example.com/image.png">',
-///       imageClipboardHandler: SuperClipboardHandler(),
+///       widgetBuilder: (node) {
+///         if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+///           return HyperImage(
+///             src: node.src!,
+///             clipboardHandler: SuperClipboardHandler(),
+///           );
+///         }
+///         return null;
+///       },
 ///     );
 ///   }
 /// }

@@ -73,8 +73,9 @@ void main() {
       final css = StringBuffer();
       for (var i = 0; i < 5000; i++) {
         css.write('.c$i { color: #00$i; } ');
-        if (i % 500 == 0)
+        if (i % 500 == 0) {
           css.write('body { color: #ff0000; } html { color: #0000ff; } ');
+        }
       }
       final sw = Stopwatch()..start();
       final doc = _resolve('<p class="c1">x</p><p>y</p>', css.toString());

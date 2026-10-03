@@ -20,10 +20,19 @@
 /// import 'package:hyper_render/hyper_render.dart';
 /// import 'package:hyper_render_clipboard/hyper_render_clipboard.dart';
 ///
-/// // Use with HyperViewer
+/// // Use with HyperViewer (it has no clipboard parameter, so hand images to
+/// // HyperImage through widgetBuilder)
 /// HyperViewer(
 ///   html: '<img src="https://example.com/image.jpg">',
-///   imageClipboardHandler: SuperClipboardHandler(),
+///   widgetBuilder: (node) {
+///     if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+///       return HyperImage(
+///         src: node.src!,
+///         clipboardHandler: SuperClipboardHandler(),
+///       );
+///     }
+///     return null;
+///   },
 /// )
 ///
 /// // Use with HyperImage directly

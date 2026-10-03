@@ -1,7 +1,7 @@
 # HyperRender — Product Roadmap
 
-**Last Updated**: 2026-10-02
-**Current Stable**: v1.10.0
+**Last Updated**: 2026-10-03
+**Current Stable**: v1.10.0 (v1.11.0 is the release candidate)
 **Repository**: [github.com/brewkits/hyper_render](https://github.com/brewkits/hyper_render)
 
 This document tracks the long-term direction of the HyperRender ecosystem.
@@ -33,6 +33,7 @@ For detailed CSS property tracking, see [`CSS_PROPERTIES_MATRIX.md`](CSS_PROPERT
   `hyper_render_markdown`, `hyper_render_highlight`, `hyper_render_clipboard`
 - **`hyper_render_devtools` v1.0.0** — UDT Tree inspector, Computed Style panel, Layout fragment/line data, demo mode (no live app required); published to pub.dev
 - **`hyper_render_devtools` v1.8.0** (2026-10-02) — the panel actually connects now (#17), plus Timeline, Selection debugger, live CSS-variable editing and JSON snapshot export. Requires `hyper_render_core` 1.10.0.
+- **Dark mode & root colors** (1.11.0, release candidate) — unstyled text follows a dark `Theme`, `HyperViewer(textColor:)` / `EpubReader(textColor:)`, `body`/`html` `color` honoured, `:root` matches only the document root, readable text on light UA surfaces (#20). Block plugins on custom tags (`<info-box>`) now render (#22).
 - **Stylesheet CSS correctness** (core 1.10.0) — `var()`, `url()`, `calc()` in `<style>` / `customCss` now resolve (inline-only before), custom properties cascade before substitution, `:root` matches only the document root, `var()` expansion capped.
 - **Golden test coverage** — Float layout, RTL/BiDi, CJK + Ruby suites pinned to ubuntu-22.04 + Flutter 3.29.2 + Noto fonts for pixel-stable CI
 - **Layout regression CI tracking** — 6 fixtures (simple paragraph → 100-paragraph article) measured against a 16 ms (60 FPS) budget on every PR. Results are recorded and posted to the PR, but are **advisory and do not block the build**: GitHub runners use software rendering and are 2–3× slower than the target hardware, so a hard gate there would fail on runner noise rather than on real regressions. Enforcing this properly requires release-mode measurement on a real device, which is not yet wired up.

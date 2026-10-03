@@ -799,11 +799,6 @@ class StyleResolver {
       }
     }
 
-    if (node is DocumentNode) {
-      style =
-          _applyRootColor(style, _rootColorBody, parentFontSize, parentStyle);
-    }
-
     // 3. Apply inline styles
     final inlineStyle = node.attributes['style'];
     if (inlineStyle != null && inlineStyle.isNotEmpty) {
@@ -833,6 +828,12 @@ class StyleResolver {
     }
 
     if (node is DocumentNode) {
+      // `body` is a descendant of `html` / `:root`, so every body declaration —
+      // normal or !important — sits above every html / :root one, including
+      // their !important forms: an element's own declaration beats what it
+      // would inherit, whatever the inherited one's priority.
+      style =
+          _applyRootColor(style, _rootColorBody, parentFontSize, parentStyle);
       style = _applyRootColor(
           style, _rootColorBodyImportant, parentFontSize, parentStyle);
       final override = rootColorOverride;
