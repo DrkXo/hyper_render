@@ -273,159 +273,169 @@ MyWidget()        // Not as good</code></pre>
             ),
           ),
 
-          // Controls
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: scheme.surfaceContainerHighest,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Content selector
-                const Text(
-                  'Content Type:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                DropdownButton<String>(
-                  value: _selectedContent,
-                  isExpanded: true,
-                  items: _contentExamples.entries.map((entry) {
-                    return DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value['name']!),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedContent = value!);
-                  },
-                ),
-
-                const Divider(height: 24),
-
-                // Semantic label
-                const Text(
-                  'Semantic Label (for screen readers):',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                SwitchListTile(
-                  title: const Text('Use custom label'),
-                  value: _useCustomLabel,
-                  onChanged: (value) {
-                    setState(() => _useCustomLabel = value);
-                  },
-                ),
-
-                if (_useCustomLabel)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        labelText: 'Custom semantic label',
-                        hintText: 'Enter descriptive label',
-                        border: const OutlineInputBorder(),
-                        helperText: 'What screen readers will announce',
-                      ),
-                      onChanged: (value) {
-                        setState(() => _customLabel = value);
-                      },
-                    ),
-                  ),
-
-                const SizedBox(height: 8),
-
-                // Current label display
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Row(
+          // Controls — scrollable and capped at half the body, so a short
+          // window shrinks them instead of overflowing the Column.
+          Flexible(
+            child: SingleChildScrollView(
+              // Material, not Container(color:): a ColoredBox would hide the
+              // ink of the ListTiles inside.
+              child: Material(
+                color: scheme.surfaceContainerHighest,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.volume_up, color: Colors.blue.shade700),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Screen reader will announce:',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      // Content selector
+                      const Text(
+                        'Content Type:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        value: _selectedContent,
+                        isExpanded: true,
+                        items: _contentExamples.entries.map((entry) {
+                          return DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value['name']!),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedContent = value!);
+                        },
+                      ),
+
+                      const Divider(height: 24),
+
+                      // Semantic label
+                      const Text(
+                        'Semantic Label (for screen readers):',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+
+                      SwitchListTile(
+                        title: const Text('Use custom label'),
+                        value: _useCustomLabel,
+                        onChanged: (value) {
+                          setState(() => _useCustomLabel = value);
+                        },
+                      ),
+
+                      if (_useCustomLabel)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              labelText: 'Custom semantic label',
+                              hintText: 'Enter descriptive label',
+                              border: const OutlineInputBorder(),
+                              helperText: 'What screen readers will announce',
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '"$semanticLabel"',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.blue.shade900,
-                                fontStyle: FontStyle.italic,
+                            onChanged: (value) {
+                              setState(() => _customLabel = value);
+                            },
+                          ),
+                        ),
+
+                      const SizedBox(height: 8),
+
+                      // Current label display
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.volume_up, color: Colors.blue.shade700),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Screen reader will announce:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '"$semanticLabel"',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.blue.shade900,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
+
+                      const SizedBox(height: 16),
+
+                      // Exclude from semantics
+                      SwitchListTile(
+                        title: const Text('Exclude from semantics'),
+                        subtitle: const Text(
+                          'Hide from screen readers (decorative content only)',
+                        ),
+                        value: _excludeFromSemantics,
+                        onChanged: (value) {
+                          setState(() => _excludeFromSemantics = value);
+                        },
+                      ),
+
+                      if (_excludeFromSemantics)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Content will be hidden from screen readers',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade900,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 16),
+                      // Text Scaler Slider
+                      ListTile(
+                        title: const Text('Text Scaling (WCAG 1.4.4)'),
+                        subtitle: Text(
+                            'Simulate system font size change (Current: ${_textScaleFactor.toStringAsFixed(1)}x)'),
+                      ),
+                      Slider(
+                        value: _textScaleFactor,
+                        min: 0.5,
+                        max: 3.0,
+                        divisions: 25,
+                        label: '${_textScaleFactor.toStringAsFixed(1)}x',
+                        onChanged: (value) {
+                          setState(() => _textScaleFactor = value);
+                        },
+                      ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
-                // Exclude from semantics
-                SwitchListTile(
-                  title: const Text('Exclude from semantics'),
-                  subtitle: const Text(
-                    'Hide from screen readers (decorative content only)',
-                  ),
-                  value: _excludeFromSemantics,
-                  onChanged: (value) {
-                    setState(() => _excludeFromSemantics = value);
-                  },
-                ),
-
-                if (_excludeFromSemantics)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Content will be hidden from screen readers',
-                            style: TextStyle(
-                              color: Colors.orange.shade900,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                const SizedBox(height: 16),
-                // Text Scaler Slider
-                ListTile(
-                  title: const Text('Text Scaling (WCAG 1.4.4)'),
-                  subtitle: Text(
-                      'Simulate system font size change (Current: ${_textScaleFactor.toStringAsFixed(1)}x)'),
-                ),
-                Slider(
-                  value: _textScaleFactor,
-                  min: 0.5,
-                  max: 3.0,
-                  divisions: 25,
-                  label: '${_textScaleFactor.toStringAsFixed(1)}x',
-                  onChanged: (value) {
-                    setState(() => _textScaleFactor = value);
-                  },
-                ),
-              ],
+              ),
             ),
           ),
 

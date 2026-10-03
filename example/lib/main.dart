@@ -67,6 +67,16 @@ void main() {
 class HyperRenderDemoApp extends StatelessWidget {
   const HyperRenderDemoApp({super.key});
 
+  /// `--dart-define=DEMO_THEME=dark|light` pins the theme so the all-demos
+  /// integration test can run in each appearance without touching the host's
+  /// system setting. Anything else follows the system.
+  static const _themeName = String.fromEnvironment('DEMO_THEME');
+  static const _themeMode = _themeName == 'dark'
+      ? ThemeMode.dark
+      : _themeName == 'light'
+          ? ThemeMode.light
+          : ThemeMode.system;
+
   @override
   Widget build(BuildContext context) {
     const seed = Color(0xFF1A56DB);
@@ -86,7 +96,7 @@ class HyperRenderDemoApp extends StatelessWidget {
         useMaterial3: true,
         appBarTheme: const AppBarTheme(elevation: 0, centerTitle: false),
       ),
-      themeMode: ThemeMode.system,
+      themeMode: _themeMode,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           ui.PointerDeviceKind.mouse,

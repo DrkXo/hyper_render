@@ -34,7 +34,7 @@ Already using `flutter_html`? You don't need to rewrite your widget tree or lear
 ```dart
 // 1. In your pubspec.yaml:
 // dependencies:
-//   hyper_render: ^1.10.0
+//   hyper_render: ^1.11.0
 
 // 2. In your Dart file — replace this single line:
 // ❌ import 'package:flutter_html/flutter_html.dart';
@@ -68,7 +68,7 @@ Html(
 
 ```yaml
 dependencies:
-  hyper_render: ^1.10.0
+  hyper_render: ^1.11.0
 ```
 
 ```dart
@@ -229,7 +229,7 @@ HyperViewer(html: '''
 ```
 
 CSS custom properties work in `<style>` blocks and `customCss`, not just inline
-(as of 1.10.0), and `url()` / `calc()` too:
+(since 1.10.0), and `url()` / `calc()` too:
 
 ```dart
 HyperViewer(
@@ -252,6 +252,17 @@ void main() {
   runApp(const MyApp());
 }
 ```
+
+### Dark Mode
+
+Under a dark `Theme`, unstyled text uses `colorScheme.onSurface` and re-resolves when the theme toggles (scroll position kept). Elements that paint their own light background (`<blockquote>`, `<kbd>`, `<th>`, `style="background:#eee"`) keep readable text automatically.
+
+```dart
+// A surface that stays light under a dark theme (an email pane, a paper page):
+HyperViewer(html: html, textColor: Colors.black87)
+```
+
+`textColor` wins over the content's own `html` / `:root` / `body` color (so an app can force a reader theme over a publisher stylesheet) but not over an element's own `color`. `body { color }` and `html { color }` are honoured; other `body` properties are not.
 
 ### CSS `@keyframes` Animation
 
@@ -330,7 +341,8 @@ HyperViewer(
 HyperViewer({
   required String html,
   String? baseUrl,           // resolves relative <img src> and <a href>
-  String? customCss,         // injected after the document's own <style> tags
+  String? customCss,         // lower priority than the document's own <style> tags (they win at equal specificity; use !important to force)
+  Color? textColor,          // document text color; wins over html/body/:root color, not over element colors
   bool selectable = true,
   bool sanitize = true,
   List<String>? allowedTags,
@@ -518,7 +530,7 @@ These packages bring specialized dependencies and are **not bundled** by default
 
 ```yaml
 dependencies:
-  hyper_render_epub: ^0.1.2
+  hyper_render_epub: ^0.1.3
 ```
 
 ```dart

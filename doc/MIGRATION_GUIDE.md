@@ -1,6 +1,22 @@
 # Migration Guide
 
-> **Current version: v1.10.0**
+> **Current version: v1.11.0**
+
+## Upgrading to v1.11.0
+
+One new parameter (`HyperViewer(textColor:)`, and `EpubReader(textColor:)`), but **rendering changes in three cases** — check them before you ship:
+
+- **Dark `Theme` → unstyled text is now `colorScheme.onSurface`** (it was always dark gray `#1F2937`). This fixes [#20](https://github.com/brewkits/hyper_render/issues/20), but if your app puts `HyperViewer` on a surface that stays light under a dark theme (a white email pane, a paper-colored reader page), the text is now light on light. Fix: pass `textColor: Colors.black87` (or any color) on that viewer. Light themes are unchanged.
+- **`body { color }` / `html { color }` now apply.** They were silently ignored. Content that declares one (EPUB stylesheets often do) renders in that color. On a dark theme a publisher `body { color: #000 }` stays black unless you pass `textColor`, which wins over it.
+- **`:root` now matches only the document root.** 1.10.0 intended this, but top-level blocks (`parent == null`) still matched, so `:root { color: #fff } p { color: red }` rendered white. A rule that relied on `:root` styling every top-level block no longer does; `:root { --var }` and inherited properties are unaffected.
+
+Also new: elements with their own opaque background and no `color` (`<blockquote>`, `<kbd>`, `<th>`, `style="background:#eee"`) never inherit text below 3:1 contrast once a theme or `textColor` default is in play.
+
+```yaml
+dependencies:
+  hyper_render: ^1.11.0
+  hyper_render_epub: ^0.1.3   # optional: EpubReader(textColor:)
+```
 
 ## Upgrading to v1.10.0
 
@@ -190,6 +206,12 @@ These APIs are stable and will remain backward-compatible in v2.0:
 ---
 
 ## Version History
+
+### v1.11.0 (October 2026)
+- Dark-theme text default, `HyperViewer(textColor:)`, `body`/`html` `color`, `:root` fix, contrast guard ([#20](https://github.com/brewkits/hyper_render/issues/20))
+
+### v1.10.0 (October 2026)
+- Stylesheet `var()` / `url()` / `calc()`, `:root` scoping, DevTools v2
 
 ### v1.3.0 (April 2026)
 - High Coverage Milestone: >80% total line coverage (900+ tests)

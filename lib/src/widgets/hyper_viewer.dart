@@ -171,7 +171,12 @@ class HyperViewer extends StatefulWidget {
 
   /// Extra CSS injected before the document's own styles.
   ///
-  /// Useful for overriding default styles without modifying the HTML.
+  /// Because it comes first, the document's own `<style>` rules win over it at
+  /// equal specificity — add `!important` to force a value (an EPUB's
+  /// `body { color }`, say). For the document's default text color prefer
+  /// [textColor].
+  ///
+  /// Useful for styling content without modifying the HTML.
   ///
   /// Example:
   /// ```dart

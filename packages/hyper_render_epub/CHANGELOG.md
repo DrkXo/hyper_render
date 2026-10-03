@@ -1,5 +1,11 @@
 # Changelog — hyper_render_epub
 
+## 0.1.3
+
+- **`EpubReader(textColor:)`** — forwarded to `HyperViewer.textColor`. Under a dark `Theme` chapter text now follows `colorScheme.onSurface` (fixes the unreadable-on-dark case in [#20](https://github.com/brewkits/hyper_render/issues/20)), and `textColor` overrides the book's own `body { color }` for reading modes whose page surface does not follow the theme (sepia, paper).
+- **Behavior change inherited from `hyper_render` 1.11.0:** a book's `body { color }` / `html { color }` now applies (it was silently ignored). A book that declares `body { color: #000 }` stays black on a dark theme unless `textColor` is set.
+- Requires `hyper_render` `^1.11.0` and `hyper_render_core` `^1.11.0`.
+
 ## 0.1.2
 
 - Updated dependencies on `hyper_render` and `hyper_render_core` to `^1.8.0` for v1.8.0 monorepo alignment and AI streaming architecture compatibility.
@@ -12,10 +18,8 @@
 
 ## 0.1.0
 
-Initial release — **not publishable yet**: it depends on `hyper_render: ^1.7.0`, which is
-not on pub.dev. `EpubReader` needs `HyperViewer.imageLoader` (unreleased, on `main`) to
-decode the inline `data:` URIs chapters carry, so this package ships once `hyper_render`
-1.7.0 does. Monorepo development is unaffected.
+Initial release. `EpubReader` needs `HyperViewer.imageLoader` (added in `hyper_render`
+1.7.0) to decode the inline `data:` URIs chapters carry.
 
 ### ✨ New
 

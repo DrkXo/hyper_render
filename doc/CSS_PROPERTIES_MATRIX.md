@@ -1,7 +1,7 @@
 # CSS Properties Support Matrix
 
-Last Updated: October 2, 2026
-Version: 1.10.0
+Last Updated: October 3, 2026
+Version: 1.11.0
 
 This document lists CSS property support in HyperRender.
 
@@ -108,7 +108,7 @@ This document lists CSS property support in HyperRender.
 
 | Property | Status | Supported Values | Notes |
 |----------|--------|------------------|-------|
-| `color` | ✅ | All CSS colors | hex, rgb, rgba, named colors |
+| `color` | ✅ | All CSS colors | hex, rgb, rgba, named colors. `html { color }` / `body { color }` set the document root color (the only `body` property honoured; `html` < `:root` < `body`). Default: dark gray in a light theme, `onSurface` in a dark `Theme`; `HyperViewer(textColor:)` overrides all of these |
 | `font-size` | ✅ | px, em, rem, % | |
 | `font-family` | ✅ | Any font name | Falls back to system fonts |
 | `font-weight` | ✅ | 100-900, normal, bold | |

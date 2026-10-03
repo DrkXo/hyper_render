@@ -1,6 +1,6 @@
 # Changelog — hyper_render_core
 
-## Unreleased
+## 1.11.0
 
 - **`StyleResolver.rootColorOverride`** — a host-supplied root color, applied to the document root after the content's own `html` / `:root` / `body` color so an app can override a publisher stylesheet. Element-level colors still win. `HyperViewer(textColor:)` sets it.
 - **`StyleResolver.ensureReadableOnOwnBackground`** (default off) — an element with its own opaque background and no color of its own never inherits text under 3:1 contrast against that background; it falls back to dark gray or white. `HyperViewer` enables it whenever it supplies a default text color.

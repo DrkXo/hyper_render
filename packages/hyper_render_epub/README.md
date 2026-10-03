@@ -34,7 +34,7 @@ an empty `tableOfContents`, and an `<img>` whose target is absent keeps its orig
 
 ```yaml
 dependencies:
-  hyper_render_epub: ^0.1.0
+  hyper_render_epub: ^0.1.3
 ```
 
 ---
