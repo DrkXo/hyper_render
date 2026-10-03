@@ -1,5 +1,9 @@
 # Changelog — hyper_render_core
 
+## Unreleased
+
+- **Block-tier plugins on custom tags now render.** `<info-box>`, `<x-badge>` and any other tag without a UA display style are built by the HTML adapters as inline nodes, so a registered **block** plugin on them never took the block path: its widget was built, linked to no fragment, laid out at 0×0 and never painted, with "Layout Warning: More child widgets than fragments" in debug. Only tags that are already block (`figure`, `div`) worked. A registered block tag is now treated as a block whatever its node type. Existing tests passed because they hand-built `BlockNode`s or only asserted `findsOneWidget`, which a 0×0 widget satisfies.
+
 ## 1.10.0
 
 ### 🆕 New
