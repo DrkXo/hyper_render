@@ -1121,6 +1121,13 @@ class _HyperViewerState extends State<HyperViewer>
     // (blockquote, kbd, th, author backgrounds) into white-on-near-white.
     resolver.ensureReadableOnOwnBackground =
         themeArgb != null || overrideArgb != null;
+    // Light text means a dark surface: switch the built-in link / code / mark /
+    // h6 colors to their dark-surface variants. Judged by the effective text
+    // color, not the theme, so a dark Theme with `textColor: black87` (a white
+    // email pane) correctly keeps the light-surface palette.
+    final effective = overrideArgb ?? themeArgb;
+    resolver.darkSurface =
+        effective != null && Color(effective).computeLuminance() > 0.5;
     resolver.resolveStyles(
       doc,
       baseStyle:

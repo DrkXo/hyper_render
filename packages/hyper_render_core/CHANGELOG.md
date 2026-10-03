@@ -1,5 +1,9 @@
 # Changelog — hyper_render_core
 
+## Unreleased
+
+- **`StyleResolver.darkSurface`** (default `false`) — switches the built-in link, `<h6>`, `<code>`, `<pre><code>` and `<mark>` colors to dark-surface variants with at least 4.5:1 contrast on `#121212` ([#23](https://github.com/brewkits/hyper_render/issues/23)). `HyperViewer` sets it whenever its effective default text color is light. Author CSS still wins; an `<a>` without `href` is untouched.
+
 ## 1.11.0
 
 - **`StyleResolver.rootColorOverride`** — a host-supplied root color, applied to the document root after the content's own `html` / `:root` / `body` color so an app can override a publisher stylesheet. Element-level colors still win. `HyperViewer(textColor:)` sets it.

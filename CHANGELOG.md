@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Dark surfaces: links, `<h6>`, `<code>` / `<pre>` and `<mark>` now use dark-surface colors** ([#23](https://github.com/brewkits/hyper_render/issues/23)). In 1.11.0 only the default text color followed a dark theme; these built-in colors were still tuned for light surfaces and measured 4.1:1 (links), 3.9:1 (`<h6>`) and **2.5:1** (`<pre><code>`) on `#121212`. They now keep at least 4.5:1, and the inline `<code>` / `<mark>` chips become dark chips instead of bright blocks. The palette is chosen from the *effective text color*: light text means a dark surface, so a dark `Theme` with `textColor: Colors.black87` (a white pane) keeps the light-surface palette, and a light `Theme` with a light `textColor` gets the dark one. Light-surface output is unchanged. Author CSS and inline styles still win. `<blockquote>`, `<kbd>` and table headers keep their light backgrounds (their text is kept readable by the 1.11.0 contrast guard). Requires the matching `hyper_render_core` (`StyleResolver.darkSurface`).
+
 ## 1.11.0
 
 - **Dark mode: `HyperViewer` text is readable on dark surfaces** ([#20](https://github.com/brewkits/hyper_render/issues/20)). Unstyled text was always the fixed dark gray `#1F2937`, with no way to change it from `HyperViewer`. Under a `Brightness.dark` `Theme` the default is now `colorScheme.onSurface`; under a light theme nothing changes. A theme toggle re-resolves styles in place (no loading state, scroll position kept). `EpubReader` goes through `HyperViewer`, so it follows the theme the same way.

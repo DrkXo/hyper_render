@@ -262,7 +262,7 @@ Under a dark `Theme`, unstyled text uses `colorScheme.onSurface` and re-resolves
 HyperViewer(html: html, textColor: Colors.black87)
 ```
 
-Known limitation: link blue, inline `<code>` / `<pre>` colors and the `<mark>` highlight are still tuned for light surfaces.
+Links, `<h6>`, `<code>` / `<pre>` and `<mark>` switch to dark-surface variants (at least 4.5:1 against `#121212`) whenever the effective text color is light — a dark `Theme`, or a light `textColor`. A dark `Theme` with a dark `textColor` (a white email pane) keeps the light-surface palette. Your own CSS (`a { color }`, inline `style`) still wins. `<blockquote>`, `<kbd>` and table headers keep their light backgrounds; their text stays readable but they remain light blocks on a dark page.
 
 `textColor` wins over the content's own `html` / `:root` / `body` color (so an app can force a reader theme over a publisher stylesheet) but not over an element's own `color`. `body { color }` and `html { color }` are honoured; other `body` properties are not.
 

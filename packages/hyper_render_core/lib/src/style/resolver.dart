@@ -662,6 +662,46 @@ class StyleResolver {
   /// host-supplied color is unchanged. An element's own `color` always wins.
   bool ensureReadableOnOwnBackground = false;
 
+  /// When true, the built-in element colors that were picked for a light
+  /// surface — links, `<code>`, `<mark>`, `<h6>` — use dark-surface variants
+  /// that keep at least 4.5:1 contrast on a typical dark page (`#121212`).
+  ///
+  /// Set it when the text sits on a dark surface. `HyperViewer` does so
+  /// whenever its effective default text color is light (a dark [Theme], or a
+  /// light `textColor`). Off by default, so output is unchanged for everyone
+  /// who does not opt in. Author CSS (`a { color }`, inline `style`) is applied
+  /// after these and still wins.
+  bool darkSurface = false;
+
+  // Dark-surface variants of the UA colors. WCAG contrast, measured: on #121212
+  // (#1E1E1E cards in parentheses) link 8.5 (7.5), h6 7.4 (6.6), pre code
+  // 9.6 (8.6); inline code 7.2 and mark 6.9 against their own chip.
+  static const Color _darkLink = Color(0xFF64B5F6);
+  static const Color _darkH6 = Color(0xFF9CA3AF);
+  static const Color _darkCode = Color(0xFF79C0FF);
+  static const Color _darkCodeBg = Color(0xFF262C36);
+  static const Color _darkMark = Color(0xFFFDE68A);
+  static const Color _darkMarkBg = Color(0xFF5C4A00);
+
+  /// Replaces a UA style's light-surface colors with their dark variants.
+  void _applyDarkSurfaceColors(ComputedStyle style, String tagName) {
+    switch (tagName) {
+      case 'a':
+        style.color = _darkLink;
+      case 'h6':
+        style.color = _darkH6;
+      case 'code':
+        style.color = _darkCode;
+        style.backgroundColor = _darkCodeBg;
+      case 'mark':
+        style.color = _darkMark;
+        style.backgroundColor = _darkMarkBg;
+      default:
+        return;
+    }
+    style.markExplicitlySet('color');
+  }
+
   static const Color _guardDark = Color(0xFF1F2937);
   static const Color _guardLight = Color(0xFFFFFFFF);
 
@@ -736,6 +776,7 @@ class StyleResolver {
           (node.attributes['href'] == null || node.attributes['href']!.isEmpty);
       if (!isHreflessAnchor) {
         style = _mergeStyles(style, _userAgentStyles[tagName]!);
+        if (darkSurface) _applyDarkSurfaceColors(style, tagName);
       }
     }
 
