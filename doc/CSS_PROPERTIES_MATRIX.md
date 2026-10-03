@@ -1,7 +1,7 @@
 # CSS Properties Support Matrix
 
-Last Updated: October 3, 2026
-Version: 1.11.0
+Last Updated: October 4, 2026
+Version: 1.12.0
 
 This document lists CSS property support in HyperRender.
 
