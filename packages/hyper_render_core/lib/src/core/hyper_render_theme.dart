@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 ///
 /// Use [HyperRenderTheme] InheritedWidget to apply this theme across
 /// an entire widget tree without prop-drilling.
+@Deprecated(
+  'Nothing in HyperRender reads HyperRenderTheme, so setting it has no effect. '
+  'Use HyperViewer(textColor:), selectionColor and selectionHandleColor, or the '
+  'ambient Theme (a dark Theme already themes the default text color).',
+)
 class HyperRenderThemeData {
   const HyperRenderThemeData({
     this.baseStyle,
@@ -59,6 +64,10 @@ class HyperRenderThemeData {
 }
 
 /// An InheritedWidget that provides [HyperRenderThemeData] to descendants.
+@Deprecated(
+  'Nothing in HyperRender reads HyperRenderTheme, so wrapping a viewer in it '
+  'has no effect. Use HyperViewer(textColor:) or the ambient Theme.',
+)
 class HyperRenderTheme extends InheritedWidget {
   const HyperRenderTheme({
     super.key,

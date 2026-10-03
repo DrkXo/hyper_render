@@ -272,10 +272,20 @@ void main() {
             Colors.white);
       });
 
-      testWidgets('customCss with !important beats the book body color',
+      testWidgets("the reader's customCss body color beats the book's, plain",
           (tester) async {
-        // The documented route when only a stylesheet preference is available.
-        final book = await EpubBook.open(_twoChapterEpub());
+        // EpubReader appends the reader's CSS after the chapter's stylesheet,
+        // so no !important is needed (unlike HyperViewer.customCss).
+        final book = await EpubBook.open(buildEpub({
+          'META-INF/container.xml': containerXml,
+          'OEBPS/content.opf': opfXml(
+            manifest: '<item id="s" href="s.css" media-type="text/css"/>'
+                '<item id="ch1" href="ch1.xhtml" media-type="application/xhtml+xml"/>',
+          ),
+          'OEBPS/s.css': 'body { color: #000000; }',
+          'OEBPS/ch1.xhtml': '<html><head><link rel="stylesheet" '
+              'href="s.css"/></head><body><p>Dark</p></body></html>',
+        }));
         final controller = EpubReaderController(book: book);
         addTearDown(controller.dispose);
         await tester.pumpWidget(MaterialApp(
@@ -284,13 +294,11 @@ void main() {
             body: EpubReader(
               controller: controller,
               mode: HyperRenderMode.sync,
-              customCss: 'body { color: #ffffff !important; }',
+              customCss: 'body { color: #ffffff; }',
             ),
           ),
         ));
         await tester.pumpAndSettle();
-        // The fixture stylesheet colors only `p`, so the document root is the
-        // place the body-level !important lands.
         expect(
             tester
                 .widget<HyperRenderWidget>(find.byType(HyperRenderWidget))

@@ -541,19 +541,25 @@ void main() {
     });
   });
 
-  group('epub-style publisher CSS', () {
+  group('publisher CSS inside the document', () {
     testWidgets(
-        'customCss "body { color … !important }" beats a chapter <style> color',
-        (t) async {
-      // The workaround for EpubReader (which has no textColor yet): chapter
-      // <style> CSS is applied after customCss, so only !important wins.
-      final px = await _shoot(t,
+        'on HyperViewer customCss comes BEFORE the document <style>, so '
+        'overriding a document body color needs !important', (t) async {
+      final plain = await _shoot(t,
+          brightness: Brightness.dark,
+          surface: Colors.black,
+          html: '<style>body { color: #ff0000; }</style>$_html',
+          css: 'body { color: #ffffff; }');
+      expect(plain.red, greaterThan(200),
+          reason: 'the document wins at equal priority: $plain');
+
+      final forced = await _shoot(t,
           brightness: Brightness.dark,
           surface: Colors.black,
           html: '<style>body { color: #ff0000; }</style>$_html',
           css: 'body { color: #ffffff !important; }');
-      expect(px.light, greaterThan(200), reason: '$px');
-      expect(px.red, lessThan(50), reason: '$px');
+      expect(forced.light, greaterThan(200), reason: '$forced');
+      expect(forced.red, lessThan(50), reason: '$forced');
     });
   });
 

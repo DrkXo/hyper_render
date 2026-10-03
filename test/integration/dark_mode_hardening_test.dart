@@ -83,9 +83,10 @@ void main() {
       expect(doc.children.length, 2);
     });
 
-    test('a body color cannot reach another document through the resolver', () {
-      // Resolvers are per-parse, but root-color state lives on the instance:
-      // re-using one for a second document must not leak the first one's rule.
+    test('a reused resolver keeps its body rule, a fresh one starts clean', () {
+      // Root-color state lives on the resolver instance: re-using it applies
+      // the same rules to the next document (documented behaviour), while a
+      // new resolver must not inherit anything.
       final r = StyleResolver()..parseCss('body { color: #ff0000; }');
       final a = HtmlAdapter().parse('<p>a</p>');
       r.resolveStyles(a);

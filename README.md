@@ -262,6 +262,8 @@ Under a dark `Theme`, unstyled text uses `colorScheme.onSurface` and re-resolves
 HyperViewer(html: html, textColor: Colors.black87)
 ```
 
+Known limitation: link blue, inline `<code>` / `<pre>` colors and the `<mark>` highlight are still tuned for light surfaces.
+
 `textColor` wins over the content's own `html` / `:root` / `body` color (so an app can force a reader theme over a publisher stylesheet) but not over an element's own `color`. `body { color }` and `html { color }` are honoured; other `body` properties are not.
 
 ### CSS `@keyframes` Animation
@@ -553,7 +555,7 @@ EpubReader(
 
 ```yaml
 dependencies:
-  hyper_render_clipboard: ^1.7.0
+  hyper_render_clipboard: ^1.7.3
 ```
 
 ```dart

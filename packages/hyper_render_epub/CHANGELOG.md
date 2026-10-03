@@ -2,7 +2,7 @@
 
 ## 0.1.3
 
-- **`EpubReader(textColor:)`** — forwarded to `HyperViewer.textColor`. Under a dark `Theme` chapter text now follows `colorScheme.onSurface` (fixes the unreadable-on-dark case in [#20](https://github.com/brewkits/hyper_render/issues/20)), and `textColor` overrides the book's own `body { color }` for reading modes whose page surface does not follow the theme (sepia, paper).
+- **`EpubReader(textColor:)`** — forwarded to `HyperViewer.textColor`. Under a dark `Theme` chapter text now follows `colorScheme.onSurface` (fixes the unreadable-on-dark case in [#20](https://github.com/brewkits/hyper_render/issues/20)), and `textColor` overrides the book's own `body { color }` (so does your own `customCss: 'body { color: … }'`, which is applied after the chapter's stylesheet) for reading modes whose page surface does not follow the theme (sepia, paper).
 - **Behavior change inherited from `hyper_render` 1.11.0:** a book's `body { color }` / `html { color }` now applies (it was silently ignored). A book that declares `body { color: #000 }` stays black on a dark theme unless `textColor` is set.
 - Requires `hyper_render` `^1.11.0` and `hyper_render_core` `^1.11.0`.
 
