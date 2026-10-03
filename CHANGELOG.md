@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Dark mode: `HyperViewer` text is readable on dark surfaces** ([#20](https://github.com/brewkits/hyper_render/issues/20)). Unstyled text was always the fixed dark gray `#1F2937`, with no way to change it from `HyperViewer`. Under a `Brightness.dark` `Theme` the default is now `colorScheme.onSurface`; under a light theme nothing changes. A theme toggle re-resolves styles in place (no loading state, scroll position kept). `EpubReader` goes through `HyperViewer`, so it follows the theme the same way.
+- **Built-in light surfaces stay readable.** `<blockquote>`, `<kbd>`, `<th>` and any author `background` without a `color` assume dark text; once a light default is in play they would inherit white on near-white. An element with its own opaque background and no color of its own now falls back to dark gray / white when the inherited text would be under 3:1 contrast. Only active when a host-supplied color exists (dark theme or `textColor`), so light-theme output without `textColor` is unchanged. An element's own `color` always wins.
+- **New `HyperViewer(textColor:)`** — a host override of the document's text color. It wins over the content's own `html` / `:root` / `body` color (so an app can force a reader theme over a publisher stylesheet) but not over an element's own color (`p { color }`, inline `style`). Not available on `HyperViewer.fromNode`.
+- **`body { color }` and `html { color }` now work.** The adapters only keep `<body>`'s children, so those selectors could never match and were silently ignored. They now set the document root color, layered as in a browser (`html` < `:root` < `body`). **Behavior change:** content that declares `body { color: … }` (EPUB stylesheets often do) now renders in that color. Only `color` is honoured; other `body` properties (`display`, `margin`, `background`) are still ignored. Consequence: a publisher `body { color: #000 }` stays black on a dark theme. `HyperViewer(textColor:)` overrides it; `EpubReader` has no `textColor` parameter yet, so until it gets one pass `customCss: 'body { color: #fff !important }'` (chapter `<style>` CSS is applied after `customCss`, so only `!important` wins).
+- **`:root` now matches the document root only.** 1.10.0 intended this but tested `parent == null`, which is also true for top-level blocks, so `:root { color: … }` still applied directly to them and beat type selectors (`:root { color: #fff } p { color: red }` rendered white). Rules that relied on that, such as a `:root { margin: 0 }` hitting every top-level block, no longer apply. `:root { --var: … }` and inherited properties are unaffected.
+- The `customCss` doc example advertised `body { font-size: 18px; }`, which is still ignored; it now shows `p { font-size: 18px; }`.
+- Requires the matching `hyper_render_core` (`StyleResolver.rootColorOverride`).
+
 ## 1.10.0
 
 - **`var()` in `<style>` / `customCss` now resolves** (fix in `hyper_render_core`). It previously produced nothing; only inline `style=""` worked. Pages that used it will now render with those values.
