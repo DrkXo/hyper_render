@@ -34,7 +34,7 @@ Already using `flutter_html`? You don't need to rewrite your widget tree or lear
 ```dart
 // 1. In your pubspec.yaml:
 // dependencies:
-//   hyper_render: ^1.10.0
+//   hyper_render: ^1.11.0
 
 // 2. In your Dart file — replace this single line:
 // ❌ import 'package:flutter_html/flutter_html.dart';
@@ -68,7 +68,7 @@ Html(
 
 ```yaml
 dependencies:
-  hyper_render: ^1.10.0
+  hyper_render: ^1.11.0
 ```
 
 ```dart
@@ -229,7 +229,7 @@ HyperViewer(html: '''
 ```
 
 CSS custom properties work in `<style>` blocks and `customCss`, not just inline
-(as of 1.10.0), and `url()` / `calc()` too:
+(since 1.10.0), and `url()` / `calc()` too:
 
 ```dart
 HyperViewer(
@@ -252,6 +252,19 @@ void main() {
   runApp(const MyApp());
 }
 ```
+
+### Dark Mode
+
+Under a dark `Theme`, unstyled text uses `colorScheme.onSurface` and re-resolves when the theme toggles (scroll position kept). Elements that paint their own light background (`<blockquote>`, `<kbd>`, `<th>`, `style="background:#eee"`) keep readable text automatically.
+
+```dart
+// A surface that stays light under a dark theme (an email pane, a paper page):
+HyperViewer(html: html, textColor: Colors.black87)
+```
+
+Known limitation: link blue, inline `<code>` / `<pre>` colors and the `<mark>` highlight are still tuned for light surfaces.
+
+`textColor` wins over the content's own `html` / `:root` / `body` color (so an app can force a reader theme over a publisher stylesheet) but not over an element's own `color`. `body { color }` and `html { color }` are honoured; other `body` properties are not.
 
 ### CSS `@keyframes` Animation
 
@@ -330,7 +343,8 @@ HyperViewer(
 HyperViewer({
   required String html,
   String? baseUrl,           // resolves relative <img src> and <a href>
-  String? customCss,         // injected after the document's own <style> tags
+  String? customCss,         // lower priority than the document's own <style> tags (they win at equal specificity; use !important to force)
+  Color? textColor,          // document text color; wins over html/body/:root color, not over element colors
   bool selectable = true,
   bool sanitize = true,
   List<String>? allowedTags,
@@ -518,20 +532,22 @@ These packages bring specialized dependencies and are **not bundled** by default
 
 ```yaml
 dependencies:
-  hyper_render_epub: ^0.1.2
+  hyper_render_epub: ^0.1.3
 ```
 
 ```dart
 import 'package:hyper_render_epub/hyper_render_epub.dart';
 
-// 1. Open EPUB from file bytes or asset
-final book = await EpubBook.openBytes(epubBytes);
+// 1. Open the .epub (any Uint8List: File, asset, network)
+final book = await EpubBook.open(epubBytes);
 
-// 2. Render book with chapter navigation
+// 2. A controller holds the position; dispose() it when done
+final controller = EpubReaderController(book: book);
+
+// 3. Render the current chapter; drive next()/previous()/goTo() from your own UI
 EpubReader(
-  book: book,
-  controller: EpubReaderController(),
-  onChapterChanged: (chapter) => print('Now reading: ${chapter.title}'),
+  controller: controller,
+  textColor: null, // null follows the theme; set it for a sepia/paper page
 )
 ```
 
@@ -539,15 +555,21 @@ EpubReader(
 
 ```yaml
 dependencies:
-  hyper_render_clipboard: ^1.7.0
+  hyper_render_clipboard: ^1.7.3
 ```
 
 ```dart
 import 'package:hyper_render_clipboard/hyper_render_clipboard.dart';
 
+// HyperViewer has no clipboard parameter: hand images to HyperImage yourself.
 HyperViewer(
   html: html,
-  imageClipboardHandler: SuperClipboardHandler(),
+  widgetBuilder: (node) {
+    if (node is AtomicNode && node.tagName == 'img' && node.src != null) {
+      return HyperImage(src: node.src!, clipboardHandler: SuperClipboardHandler());
+    }
+    return null;
+  },
 )
 ```
 

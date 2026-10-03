@@ -171,16 +171,40 @@ class HyperViewer extends StatefulWidget {
 
   /// Extra CSS injected before the document's own styles.
   ///
-  /// Useful for overriding default styles without modifying the HTML.
+  /// Because it comes first, the document's own `<style>` rules win over it at
+  /// equal specificity — add `!important` to force a value (an EPUB's
+  /// `body { color }`, say). For the document's default text color prefer
+  /// [textColor].
+  ///
+  /// Useful for styling content without modifying the HTML.
   ///
   /// Example:
   /// ```dart
   /// HyperViewer(
   ///   html: content,
-  ///   customCss: 'body { font-size: 18px; } a { color: red; }',
+  ///   customCss: 'p { font-size: 18px; } a { color: red; }',
   /// )
   /// ```
   final String? customCss;
+
+  /// Text color for the document root — a host override.
+  ///
+  /// Every element that does not set its own `color` (via CSS or an inline
+  /// `style`) inherits it. It wins over the content's own `html` / `:root` /
+  /// `body` color, so an app can force a reader theme over a publisher
+  /// stylesheet (an EPUB's `body { color: #000 }` on a dark surface, say).
+  /// Elements that set their own color — links, `<mark>`, code blocks, anything
+  /// styled in the content — keep it.
+  ///
+  /// When null (the default) the content decides, falling back to a theme
+  /// default: under a [Brightness.dark] [Theme] that is `colorScheme.onSurface`
+  /// (so unstyled text stays readable on dark surfaces); under a light theme it
+  /// is the built-in dark gray. That theme default is the lowest-priority layer
+  /// — any CSS color in the content beats it. The viewer re-renders when the
+  /// theme brightness changes.
+  ///
+  /// Has no effect on [HyperViewer.fromNode], whose document is already styled.
+  final Color? textColor;
 
   /// Draw colored outlines around each rendered fragment and line row.
   ///
@@ -539,6 +563,7 @@ class HyperViewer extends StatefulWidget {
     this.excludeSemantics = false,
     this.baseUrl,
     this.customCss,
+    this.textColor,
     this.debugShowHyperRenderBounds = false,
     this.enableComplexFilters = true,
     this.captureKey,
@@ -597,6 +622,7 @@ class HyperViewer extends StatefulWidget {
     this.excludeSemantics = false,
     this.baseUrl,
     this.customCss,
+    this.textColor,
     this.debugShowHyperRenderBounds = false,
     this.enableComplexFilters = true,
     this.captureKey,
@@ -655,6 +681,7 @@ class HyperViewer extends StatefulWidget {
     this.excludeSemantics = false,
     this.baseUrl,
     this.customCss,
+    this.textColor,
     this.debugShowHyperRenderBounds = false,
     this.enableComplexFilters = true,
     this.captureKey,
@@ -726,6 +753,7 @@ class HyperViewer extends StatefulWidget {
     this.excludeSemantics = false,
     this.baseUrl,
     this.customCss,
+    this.textColor,
     this.debugShowHyperRenderBounds = false,
     this.enableComplexFilters = true,
     this.captureKey,
@@ -797,6 +825,7 @@ class HyperViewer extends StatefulWidget {
         sanitize = false,
         allowedTags = null,
         allowDataAttributes = false,
+        textColor = null,
         baseUrl = null,
         customCss = null,
         pageController = null,
@@ -1041,7 +1070,62 @@ class _HyperViewerState extends State<HyperViewer>
       _internalScrollController = ScrollController();
     }
     widget.streamingController?.addListener(_onStreamingStateChanged);
-    _parseContent();
+    // The first parse happens in didChangeDependencies: the ambient Theme (for
+    // the default text color) cannot be read from initState.
+  }
+
+  /// The theme-derived default the current document was resolved with — null
+  /// when the built-in default was used. Compared against the ambient value to
+  /// decide whether a theme change needs a re-resolve.
+  Color? _appliedThemeColor;
+  bool _didInitialParse = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didInitialParse) {
+      _didInitialParse = true;
+      _parseContent();
+    } else if (_themeTextColor() != _appliedThemeColor) {
+      _parseContent(silent: true);
+    }
+  }
+
+  /// Lowest-priority default text color: the theme's `onSurface` under a dark
+  /// theme, null otherwise (the built-in default, unchanged from before dark
+  /// mode support, so light-theme output is identical).
+  Color? _themeTextColor() {
+    // An explicit textColor owns the root, so the theme default is moot — and
+    // ignoring it means a theme toggle does not trigger a pointless re-parse.
+    if (widget._prebuiltDocument != null || widget.textColor != null) {
+      return null;
+    }
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.dark
+        ? theme.colorScheme.onSurface
+        : null;
+  }
+
+  /// Resolves [doc]'s styles with the default text color layers: [themeArgb]
+  /// as the resolver's starting style (lowest priority), [overrideArgb] as the
+  /// host override. Colors travel as ints so this is isolate-safe.
+  static void _resolveWithRootColor(
+    StyleResolver resolver,
+    DocumentNode doc, {
+    int? themeArgb,
+    int? overrideArgb,
+  }) {
+    resolver.rootColorOverride =
+        overrideArgb == null ? null : Color(overrideArgb);
+    // A host-supplied light default must not turn the built-in light surfaces
+    // (blockquote, kbd, th, author backgrounds) into white-on-near-white.
+    resolver.ensureReadableOnOwnBackground =
+        themeArgb != null || overrideArgb != null;
+    resolver.resolveStyles(
+      doc,
+      baseStyle:
+          themeArgb == null ? null : ComputedStyle(color: Color(themeArgb)),
+    );
   }
 
   void _onStreamingStateChanged() {
@@ -1142,6 +1226,7 @@ class _HyperViewerState extends State<HyperViewer>
         oldWidget.mode != widget.mode ||
         oldWidget.baseUrl != widget.baseUrl ||
         oldWidget.customCss != widget.customCss ||
+        oldWidget.textColor != widget.textColor ||
         oldWidget.sanitize != widget.sanitize ||
         !listEquals(oldWidget.allowedTags, widget.allowedTags) ||
         oldWidget.allowDataAttributes != widget.allowDataAttributes ||
@@ -1577,7 +1662,14 @@ class _HyperViewerState extends State<HyperViewer>
   static Map<String, String> get _cssVariableOverrides =>
       kDebugMode ? HyperRenderDebugHooks.cssVariableOverrides.value : const {};
 
-  void _parseContent() {
+  /// Parses [_rawContent] and rebuilds the document(s).
+  ///
+  /// [silent] re-parses in place: the current content stays on screen (no
+  /// loading state, no fade-out/in) and is swapped when the new parse lands.
+  /// Used for theme changes, where the old content is merely stale, not absent;
+  /// flipping to the loading state would rebuild the virtualized list and send
+  /// the reader back to the top.
+  void _parseContent({bool silent = false}) {
     // Fast path: pre-parsed AST — skip all parsing.
     if (widget._prebuiltDocument != null) {
       _docKeyframes = const {};
@@ -1593,6 +1685,12 @@ class _HyperViewerState extends State<HyperViewer>
       _contentFadeController.forward();
       return;
     }
+
+    // Resolved once per parse so every site below (and the isolate) agrees.
+    final themeColor = _themeTextColor();
+    _appliedThemeColor = themeColor;
+    final themeArgb = themeColor?.toARGB32();
+    final overrideArgb = widget.textColor?.toARGB32();
 
     // Reset extracted keyframes and section hash cache so stale animations /
     // dirty-flag data don't persist across full content changes.
@@ -1679,7 +1777,7 @@ class _HyperViewerState extends State<HyperViewer>
 
     if (!useVirtualization) {
       // Sync parsing (fast path for small content)
-      _beginContentFade();
+      if (!silent) _beginContentFade();
       try {
         final doc = parser is ExtendedContentParser
             ? parser.parseWithOptions(contentToRender,
@@ -1689,7 +1787,8 @@ class _HyperViewerState extends State<HyperViewer>
         final resolver = StyleResolver()
           ..customPropertyOverrides = _cssVariableOverrides;
         if (cssToApply.isNotEmpty) resolver.parseCss(cssToApply);
-        resolver.resolveStyles(doc);
+        _resolveWithRootColor(resolver, doc,
+            themeArgb: themeArgb, overrideArgb: overrideArgb);
         setState(() {
           _syncDocument = doc;
           _sections = null;
@@ -1703,8 +1802,10 @@ class _HyperViewerState extends State<HyperViewer>
     } else {
       // Async parsing (isolate path for large HTML content)
       if (widget.contentType == HyperContentType.html) {
-        _beginContentFade();
-        setState(() => _isLoading = true);
+        if (!silent) {
+          _beginContentFade();
+          setState(() => _isLoading = true);
+        }
 
         // Capture parse ID before async gap to detect stale results.
         final currentParseId = ++_parseId;
@@ -1716,6 +1817,8 @@ class _HyperViewerState extends State<HyperViewer>
           widget.renderConfig.virtualizationChunkSize,
           // Passed explicitly: statics are not shared with a compute() isolate.
           _cssVariableOverrides,
+          themeArgb,
+          overrideArgb,
         );
 
         Future<List<DocumentNode>> parseFuture;
@@ -1743,7 +1846,7 @@ class _HyperViewerState extends State<HyperViewer>
         });
       } else {
         // Fallback to sync parsing for Delta/Markdown in virtualized/paged mode.
-        _beginContentFade();
+        if (!silent) _beginContentFade();
         try {
           final doc = parser is ExtendedContentParser
               ? parser.parseWithOptions(contentToRender,
@@ -1753,7 +1856,8 @@ class _HyperViewerState extends State<HyperViewer>
           final resolver = StyleResolver()
             ..customPropertyOverrides = _cssVariableOverrides;
           if (cssToApply.isNotEmpty) resolver.parseCss(cssToApply);
-          resolver.resolveStyles(doc);
+          _resolveWithRootColor(resolver, doc,
+              themeArgb: themeArgb, overrideArgb: overrideArgb);
 
           // Markdown/Delta in virtualized/paged mode was wrapped as a
           // single section, defeating the virtualization entirely for large docs.
@@ -1778,11 +1882,20 @@ class _HyperViewerState extends State<HyperViewer>
   }
 
   // Static function that runs in an isolate — must not capture context.
-  // Accepts a (html, css, baseUrl, chunkSize, cssVariableOverrides) record so
-  // CSS rules are available inside the isolate.
+  // Accepts a (html, css, baseUrl, chunkSize, cssVariableOverrides, themeArgb,
+  // overrideArgb) record so CSS rules and the text-color layers are available
+  // inside the isolate (colors travel as ints: only primitives cross it).
   static List<DocumentNode> _parseAndChunk(
-      (String, String, String?, int, Map<String, String>) args) {
-    final (html, css, baseUrl, chunkSize, cssVariableOverrides) = args;
+      (String, String, String?, int, Map<String, String>, int?, int?) args) {
+    final (
+      html,
+      css,
+      baseUrl,
+      chunkSize,
+      cssVariableOverrides,
+      themeArgb,
+      overrideArgb
+    ) = args;
     final adapter = HtmlAdapter();
     // chunkSize: keeps each RenderHyperBox well under GPU texture limits
     // (~4096px physical on most devices). Configurable via HyperRenderConfig.
@@ -1794,7 +1907,8 @@ class _HyperViewerState extends State<HyperViewer>
       ..customPropertyOverrides = cssVariableOverrides;
     if (css.isNotEmpty) resolver.parseCss(css);
     for (var section in sections) {
-      resolver.resolveStyles(section);
+      _resolveWithRootColor(resolver, section,
+          themeArgb: themeArgb, overrideArgb: overrideArgb);
     }
 
     return sections;

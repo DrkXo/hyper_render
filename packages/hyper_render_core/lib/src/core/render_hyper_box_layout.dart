@@ -106,6 +106,16 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
   }
 
   void _handleInlineNode(UDTNode node) {
+    // A custom tag (`<info-box>`, `<x-badge>`) has no UA display style, so the
+    // adapters build it as an InlineNode even when its plugin is block-tier.
+    // Routing it through the inline path never emits a fragment for the plugin
+    // widget: the widget was built but never linked, laid out at 0x0 and never
+    // painted. A registered block tag is a block whatever its node type.
+    if (_blockPluginTags.isNotEmpty &&
+        _blockPluginTags.contains(node.tagName?.toLowerCase())) {
+      _tokenizeBlockPlugin(node);
+      return;
+    }
     if (_inlinePluginTags.isNotEmpty &&
         _inlinePluginTags.contains(node.tagName?.toLowerCase())) {
       _fragments.add(Fragment.atomic(

@@ -1,5 +1,10 @@
 # Changelog — hyper_render_clipboard
 
+## [1.7.3] - 2026-10-03
+
+### 📝 Documentation only (no code change)
+- The README, usage guide, example and dartdoc showed `HyperViewer(imageClipboardHandler: …)` and `onImageLongPress`. `HyperViewer` has no such parameters, so the documented setup did not compile. They now show the real route: return a `HyperImage(clipboardHandler: …)` from `HyperViewer.widgetBuilder`. A test (`test/documented_usage_test.dart`) compiles and runs that snippet.
+
 ## [1.7.2] - 2026-08-22
 
 ### 🧹 Dead Code Removal & WASM Compatibility

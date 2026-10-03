@@ -388,7 +388,39 @@ class StyleResolver {
     _rulesDeclareCustomProperties = _cssRules.any((r) =>
         r.declaresCustomProperties || r.declaresImportantCustomProperties);
 
+    _rootColorHtml = _rootColorHtmlImportant = null;
+    _rootColorBody = _rootColorBodyImportant = null;
+    int htmlAt = -1, htmlImpAt = -1, bodyAt = -1, bodyImpAt = -1;
+
     for (final rule in _cssRules) {
+      // Later source order wins within each selector. A rule's declarations are
+      // a Map, so `color` appears at most once per rule.
+      final sel = rule.selector.trim().toLowerCase();
+      if (sel == 'html' || sel == 'body') {
+        final isHtml = sel == 'html';
+        final c = rule.declarations['color'];
+        if (c != null && rule.sourceIndex >= (isHtml ? htmlAt : bodyAt)) {
+          if (isHtml) {
+            _rootColorHtml = c;
+            htmlAt = rule.sourceIndex;
+          } else {
+            _rootColorBody = c;
+            bodyAt = rule.sourceIndex;
+          }
+        }
+        final ci = rule.importantDeclarations['color'];
+        if (ci != null &&
+            rule.sourceIndex >= (isHtml ? htmlImpAt : bodyImpAt)) {
+          if (isHtml) {
+            _rootColorHtmlImportant = ci;
+            htmlImpAt = rule.sourceIndex;
+          } else {
+            _rootColorBodyImportant = ci;
+            bodyImpAt = rule.sourceIndex;
+          }
+        }
+      }
+
       // Extract the rightmost simple selector part (after any combinator).
       final rightmost = _rightmostSimplePart(rule.selector);
 
@@ -611,6 +643,79 @@ class StyleResolver {
     _resolveNode(document, base);
   }
 
+  /// Host-supplied root color, applied to the document root **after** the
+  /// content's own `html` / `:root` / `body` color (and their `!important`
+  /// forms), so an app can force a reader theme over a publisher stylesheet.
+  /// Element-level colors (`p { color }`, inline `style`) still win — they are
+  /// resolved on their own nodes. null (default) leaves the content in charge.
+  Color? rootColorOverride;
+
+  /// When true, an element that paints its own opaque background but sets no
+  /// color of its own never inherits text that is unreadable on that
+  /// background (WCAG contrast below 3:1): it falls back to whichever of dark
+  /// gray / white reads better.
+  ///
+  /// The built-in light surfaces — `<blockquote>`, `<kbd>`, `<th>` — and any
+  /// author `background` without a `color` all assume dark text. Once the host
+  /// supplies a light default (a dark theme, or [rootColorOverride]) they would
+  /// otherwise inherit white-on-near-white. Off by default so output without a
+  /// host-supplied color is unchanged. An element's own `color` always wins.
+  bool ensureReadableOnOwnBackground = false;
+
+  static const Color _guardDark = Color(0xFF1F2937);
+  static const Color _guardLight = Color(0xFFFFFFFF);
+
+  static double _contrastRatio(Color a, Color b) {
+    final la = a.computeLuminance(), lb = b.computeLuminance();
+    final hi = la > lb ? la : lb, lo = la > lb ? lb : la;
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  void _applyReadabilityGuard(ComputedStyle style) {
+    if (!ensureReadableOnOwnBackground || style.isExplicitlySet('color')) {
+      return;
+    }
+    final bg = style.backgroundColor;
+    // Translucent backgrounds depend on what is behind them — leave those.
+    if (bg == null || bg.a < 1.0) return;
+    if (_contrastRatio(style.color, bg) >= 3.0) return;
+    style.color =
+        _contrastRatio(_guardDark, bg) >= _contrastRatio(_guardLight, bg)
+            ? _guardDark
+            : _guardLight;
+  }
+
+  /// `html { color }` / `body { color }`.
+  ///
+  /// The adapters parse only `<body>`'s children, so no UDT node is ever tagged
+  /// `body` or `html` and those type selectors can never match. The document
+  /// root stands in for them, layered as a browser does: `html` < `:root` <
+  /// `body` (`body` is the descendant, so it wins regardless of source order).
+  /// Every element without its own color inherits the result.
+  ///
+  /// Only `color` is honoured. Other body properties (`display`, `margin`,
+  /// `background`, …) would change the root's own box, not just what children
+  /// inherit, so they stay ignored as before.
+  ///
+  /// Precomputed by [_buildRuleIndex] so each document section costs O(1).
+  String? _rootColorHtml;
+  String? _rootColorHtmlImportant;
+  String? _rootColorBody;
+  String? _rootColorBodyImportant;
+
+  /// Applies a root-selector `color` declaration to the document root.
+  ComputedStyle _applyRootColor(
+    ComputedStyle style,
+    String? value,
+    double parentFontSize,
+    ComputedStyle parentStyle,
+  ) {
+    if (value == null) return style;
+    return _applyDeclarations(style, {'color': value},
+        parentFontSize: parentFontSize,
+        inheritedCustomProps: parentStyle.customProperties);
+  }
+
   /// Resolve styles for a single node and its children
   void _resolveNode(UDTNode node, ComputedStyle parentStyle) {
     // Start with default style
@@ -677,6 +782,11 @@ class StyleResolver {
     _elementCustomProps = cascadedCustom;
     if (cascadedCustom != null) style.customProperties.addAll(cascadedCustom);
 
+    if (node is DocumentNode) {
+      style =
+          _applyRootColor(style, _rootColorHtml, parentFontSize, parentStyle);
+    }
+
     for (final rule in candidates) {
       if (rule.declarations.isNotEmpty &&
           _matchesSelector(node, rule.selector)) {
@@ -701,6 +811,10 @@ class StyleResolver {
     }
 
     // 4. Apply !important declarations (win over inline styles, per CSS spec)
+    if (node is DocumentNode) {
+      style = _applyRootColor(
+          style, _rootColorHtmlImportant, parentFontSize, parentStyle);
+    }
     for (final rule in candidates) {
       if (rule.importantDeclarations.isNotEmpty &&
           _matchesSelector(node, rule.selector)) {
@@ -713,10 +827,27 @@ class StyleResolver {
       }
     }
 
+    if (node is DocumentNode) {
+      // `body` is a descendant of `html` / `:root`, so every body declaration —
+      // normal or !important — sits above every html / :root one, including
+      // their !important forms: an element's own declaration beats what it
+      // would inherit, whatever the inherited one's priority.
+      style =
+          _applyRootColor(style, _rootColorBody, parentFontSize, parentStyle);
+      style = _applyRootColor(
+          style, _rootColorBodyImportant, parentFontSize, parentStyle);
+      final override = rootColorOverride;
+      if (override != null) {
+        style.color = override;
+        style.markExplicitlySet('color');
+      }
+    }
+
     _elementCustomProps = null;
 
     // 4. Inherit from parent
     _applyInheritance(style, parentStyle);
+    _applyReadabilityGuard(style);
 
     // Store computed style on node
     node.style = style;
@@ -1000,7 +1131,9 @@ class StyleResolver {
     // so `:root { … }` applied to EVERY element: `:root { font-size: 62.5% }`
     // compounded per level, and `:root { --c: … }` reset any descendant
     // override of --c on every element below it.
-    if (pseudo == ':root') return parent == null;
+    // Top-level blocks have `parent == null` too (the adapters do not point
+    // them back at the DocumentNode), so test the node type, not the parent.
+    if (pseudo == ':root') return node is DocumentNode;
 
     // ── :first-child ────────────────────────────────────────────────────────
     if (pseudo == ':first-child') {

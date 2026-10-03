@@ -7,6 +7,13 @@ build/
 *.dill.track.dill
 
 
+# Crash reports / logs (.pubignore replaces .gitignore, so ignored files would
+# otherwise be published — flutter_0N.log carries local paths and commands)
+*.log
+**/*.log
+.DS_Store
+**/.DS_Store
+
 # Tests — not needed by package consumers
 test/
 

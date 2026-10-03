@@ -16,11 +16,15 @@ import 'helpers/file_helper.dart';
 /// ```dart
 /// import 'package:hyper_render_clipboard/hyper_render_clipboard.dart';
 ///
-/// HyperViewer(
-///   html: content,
-///   imageClipboardHandler: SuperClipboardHandler(),
+/// // HyperImage takes the handler directly:
+/// HyperImage(
+///   src: 'https://example.com/image.jpg',
+///   clipboardHandler: SuperClipboardHandler(),
 /// )
 /// ```
+///
+/// `HyperViewer` has no clipboard parameter; to use the handler with it, return
+/// a `HyperImage` from `widgetBuilder` (see the package README).
 ///
 /// ## Platform Support
 /// - macOS: Full support

@@ -149,6 +149,13 @@ class EpubReader extends StatelessWidget {
   /// reader's font-size / margin / colour preferences go here.
   final String? customCss;
 
+  /// Forwarded to [HyperViewer.textColor]: the chapter's text color, winning
+  /// over the book's own `body { color }`. Leave null to follow the ambient
+  /// theme (light text under a dark [Theme]) while still honouring the book's
+  /// stylesheet; set it when the page surface does not follow the theme — a
+  /// "paper" or sepia reading mode, for instance.
+  final Color? textColor;
+
   /// Forwarded to [HyperViewer.selectable].
   final bool selectable;
 
@@ -166,6 +173,7 @@ class EpubReader extends StatelessWidget {
     this.mode = HyperRenderMode.paged,
     this.onExternalLinkTap,
     this.customCss,
+    this.textColor,
     this.selectable = true,
     this.textScaler,
     this.emptyBuilder,
@@ -191,6 +199,7 @@ class EpubReader extends StatelessWidget {
           key: ValueKey<int>(controller.chapterIndex),
           html: chapter.html,
           customCss: _mergeCss(chapter.css, customCss),
+          textColor: textColor,
           // Chapter images are inline `data:` URIs; the default network loader
           // cannot decode those.
           imageLoader: epubImageLoader,

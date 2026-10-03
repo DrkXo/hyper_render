@@ -184,88 +184,92 @@ class _SecurityDemoState extends State<SecurityDemo> {
             ),
 
           // Controls
-          Container(
-            padding: const EdgeInsets.all(16),
+          // Material, not Container(color:): a ColoredBox would hide the
+          // ink of the SwitchListTiles inside.
+          Material(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Preset selector
-                const Text(
-                  'Attack Scenario:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                DropdownButton<String>(
-                  value: _selectedPreset,
-                  isExpanded: true,
-                  items: _presets.entries.map((entry) {
-                    return DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value['name']!),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedPreset = value!);
-                  },
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  preset['description']!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                    fontStyle: FontStyle.italic,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Preset selector
+                  const Text(
+                    'Attack Scenario:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                ),
-
-                const Divider(height: 24),
-
-                // Sanitization toggle
-                SwitchListTile(
-                  title: const Text('Enable Sanitization 🔒'),
-                  subtitle: const Text(
-                    'Removes dangerous tags and attributes (RECOMMENDED)',
-                  ),
-                  value: _sanitizeEnabled,
-                  onChanged: (value) {
-                    setState(() => _sanitizeEnabled = value);
-                  },
-                ),
-
-                // Data attributes toggle
-                if (_sanitizeEnabled)
-                  SwitchListTile(
-                    title: const Text('Allow data-* attributes'),
-                    subtitle: const Text('Permit data- attributes in HTML'),
-                    value: _allowDataAttributes,
+                  const SizedBox(height: 8),
+                  DropdownButton<String>(
+                    value: _selectedPreset,
+                    isExpanded: true,
+                    items: _presets.entries.map((entry) {
+                      return DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value['name']!),
+                      );
+                    }).toList(),
                     onChanged: (value) {
-                      setState(() => _allowDataAttributes = value);
+                      setState(() => _selectedPreset = value!);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    preset['description']!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+
+                  const Divider(height: 24),
+
+                  // Sanitization toggle
+                  SwitchListTile(
+                    title: const Text('Enable Sanitization 🔒'),
+                    subtitle: const Text(
+                      'Removes dangerous tags and attributes (RECOMMENDED)',
+                    ),
+                    value: _sanitizeEnabled,
+                    onChanged: (value) {
+                      setState(() => _sanitizeEnabled = value);
                     },
                   ),
 
-                const SizedBox(height: 8),
+                  // Data attributes toggle
+                  if (_sanitizeEnabled)
+                    SwitchListTile(
+                      title: const Text('Allow data-* attributes'),
+                      subtitle: const Text('Permit data- attributes in HTML'),
+                      value: _allowDataAttributes,
+                      onChanged: (value) {
+                        setState(() => _allowDataAttributes = value);
+                      },
+                    ),
 
-                // Status indicator
-                Row(
-                  children: [
-                    Icon(
-                      isDangerous ? Icons.dangerous : Icons.check_circle,
-                      color: isDangerous ? Colors.red : Colors.green,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isDangerous
-                          ? 'Dangerous content detected!'
-                          : 'Content is safe',
-                      style: TextStyle(
+                  const SizedBox(height: 8),
+
+                  // Status indicator
+                  Row(
+                    children: [
+                      Icon(
+                        isDangerous ? Icons.dangerous : Icons.check_circle,
                         color: isDangerous ? Colors.red : Colors.green,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Text(
+                        isDangerous
+                            ? 'Dangerous content detected!'
+                            : 'Content is safe',
+                        style: TextStyle(
+                          color: isDangerous ? Colors.red : Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
 

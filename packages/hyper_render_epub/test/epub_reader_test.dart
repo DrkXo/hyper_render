@@ -198,6 +198,117 @@ void main() {
       );
     });
 
+    testWidgets('forwards textColor to the viewer', (tester) async {
+      final book = await EpubBook.open(_twoChapterEpub());
+      final controller = EpubReaderController(book: book);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(_host(EpubReader(
+        controller: controller,
+        textColor: const Color(0xFF123456),
+      )));
+      await tester.pump();
+
+      expect(_viewer(tester).textColor, const Color(0xFF123456));
+    });
+
+    group('text color on a dark theme (#20)', () {
+      Future<Color> chapterTextColor(
+        WidgetTester tester, {
+        String css = '',
+        Color? textColor,
+      }) async {
+        final book = await EpubBook.open(buildEpub({
+          'META-INF/container.xml': containerXml,
+          'OEBPS/content.opf': opfXml(
+            manifest: '<item id="s" href="s.css" media-type="text/css"/>'
+                '<item id="ch1" href="ch1.xhtml" media-type="application/xhtml+xml"/>',
+          ),
+          'OEBPS/s.css': css,
+          'OEBPS/ch1.xhtml': '<html><head><link rel="stylesheet" '
+              'href="s.css"/></head><body><p>Dark reading</p></body></html>',
+        }));
+        final controller = EpubReaderController(book: book);
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: EpubReader(
+              controller: controller,
+              mode: HyperRenderMode.sync,
+              textColor: textColor,
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        UDTNode? p;
+        void walk(UDTNode n) {
+          if (n.tagName == 'p') p ??= n;
+          n.children.forEach(walk);
+        }
+
+        walk(tester
+            .widget<HyperRenderWidget>(find.byType(HyperRenderWidget))
+            .document);
+        return p!.style.color;
+      }
+
+      testWidgets('a book without a color follows the theme', (tester) async {
+        expect(await chapterTextColor(tester),
+            ThemeData.dark().colorScheme.onSurface);
+      });
+
+      testWidgets("a book's own body color is honoured", (tester) async {
+        expect(await chapterTextColor(tester, css: 'body { color: #000000; }'),
+            const Color(0xFF000000));
+      });
+
+      testWidgets('textColor overrides the book body color', (tester) async {
+        expect(
+            await chapterTextColor(tester,
+                css: 'body { color: #000000; }', textColor: Colors.white),
+            Colors.white);
+      });
+
+      testWidgets("the reader's customCss body color beats the book's, plain",
+          (tester) async {
+        // EpubReader appends the reader's CSS after the chapter's stylesheet,
+        // so no !important is needed (unlike HyperViewer.customCss).
+        final book = await EpubBook.open(buildEpub({
+          'META-INF/container.xml': containerXml,
+          'OEBPS/content.opf': opfXml(
+            manifest: '<item id="s" href="s.css" media-type="text/css"/>'
+                '<item id="ch1" href="ch1.xhtml" media-type="application/xhtml+xml"/>',
+          ),
+          'OEBPS/s.css': 'body { color: #000000; }',
+          'OEBPS/ch1.xhtml': '<html><head><link rel="stylesheet" '
+              'href="s.css"/></head><body><p>Dark</p></body></html>',
+        }));
+        final controller = EpubReaderController(book: book);
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: EpubReader(
+              controller: controller,
+              mode: HyperRenderMode.sync,
+              customCss: 'body { color: #ffffff; }',
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        expect(
+            tester
+                .widget<HyperRenderWidget>(find.byType(HyperRenderWidget))
+                .document
+                .style
+                .color,
+            Colors.white);
+      });
+    });
+
     testWidgets('uses epubImageLoader, which is what decodes data: URIs',
         (tester) async {
       final book = await EpubBook.open(_twoChapterEpub());

@@ -1,6 +1,8 @@
 # HyperRender Multimedia Integration Examples
 
-This guide demonstrates how to integrate video, audio, iframes, and custom widgets into HyperRender v1.0.
+This guide demonstrates how to integrate video, audio, iframes, and custom widgets into HyperRender.
+
+> **API note.** `HyperViewer` has **no** `mediaBuilder` parameter. Every example below routes media through `widgetBuilder` (`Widget? Function(UDTNode)`), which receives `<video>`, `<audio>`, `<iframe>` and custom tags as `AtomicNode`s; use `MediaInfo.fromNode(node)` to read their attributes. (`mediaBuilder` is a parameter of `HtmlToSpanConverter`, a different class.) Returning `null` falls back to the built-in placeholder.
 
 ## 🎯 What's Unique About HyperRender?
 
@@ -18,9 +20,11 @@ While FWFH struggles with floated media elements, HyperRender's architecture han
 
 ## Running the Examples
 
+The demo app's **Images & Video** hub (`example/lib/main.dart`) runs the snippets below:
+
 ```bash
 cd example
-flutter run lib/multimedia_example.dart
+flutter run
 ```
 
 ## 1. Default Placeholders
@@ -33,7 +37,7 @@ HyperViewer(
     <video src="sample.mp4" poster="poster.jpg" width="640" height="360"></video>
     <audio src="sample.mp3" title="My Audio Track"></audio>
   ''',
-  // No mediaBuilder needed - default placeholders shown
+  // No widgetBuilder needed - default placeholders shown
 )
 ```
 
@@ -46,7 +50,7 @@ HyperViewer(
 
 ## 2. Video Player Integration
 
-Use `mediaBuilder` to plug in the `video_player` package.
+Use `widgetBuilder` to plug in the `video_player` package.
 
 ### Setup
 
@@ -71,14 +75,11 @@ HyperViewer(
       loop>
     </video>
   ''',
-  mediaBuilder: (context, mediaInfo) {
-    if (mediaInfo.isVideo) {
-      return VideoPlayerWidget(
-        mediaInfo: mediaInfo,
-      );
+  widgetBuilder: (node) {
+    if (node is AtomicNode && node.tagName == 'video') {
+      return VideoPlayerWidget(mediaInfo: MediaInfo.fromNode(node));
     }
-    // Fall back to default for audio
-    return DefaultMediaWidget(mediaInfo: mediaInfo);
+    return null; // audio and everything else: built-in rendering
   },
 )
 ```
@@ -289,8 +290,8 @@ HyperViewer(
 
 | Approach | Use Case | Callback |
 |----------|----------|----------|
-| **mediaBuilder** | Specifically for `<video>` and `<audio>` tags | `MediaWidgetBuilder` |
-| **widgetBuilder** | Generic - any tag (`<iframe>`, custom elements) | `HyperWidgetBuilder` |
+| **widgetBuilder** on `HyperViewer` | Any tag: `<video>`, `<audio>`, `<iframe>`, custom elements | `HyperWidgetBuilder` |
+| `mediaBuilder` on `HtmlToSpanConverter` | Only when you use that converter directly | `MediaWidgetBuilder` |
 
 ### Type Signatures
 
@@ -314,7 +315,7 @@ HTML Parser
   ↓
 UDTNode (AtomicNode for video/iframe)
   ↓
-widgetBuilder/mediaBuilder callback
+widgetBuilder callback
   ↓
 Flutter Widget
   ↓
@@ -360,12 +361,16 @@ widgetBuilder: (node) {
 
 ```dart
 // ✅ GOOD: Fall back to default on error
-mediaBuilder: (context, mediaInfo) {
-  try {
-    return VideoPlayerWidget(mediaInfo: mediaInfo);
-  } catch (e) {
-    return DefaultMediaWidget(mediaInfo: mediaInfo);
+widgetBuilder: (node) {
+  if (node is AtomicNode && node.tagName == 'video') {
+    final info = MediaInfo.fromNode(node);
+    try {
+      return VideoPlayerWidget(mediaInfo: info);
+    } catch (e) {
+      return DefaultMediaWidget(mediaInfo: info);
+    }
   }
+  return null;
 }
 ```
 
@@ -391,7 +396,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
 ## Future: hyper_render_media Plugin
 
-We're planning a dedicated plugin:
+A dedicated plugin is **planned, not released** — nothing named `hyper_render_media` exists on pub.dev yet, and the snippet below is a sketch of the intended API (it would take a `widgetBuilder`, since `HyperViewer` has no `mediaBuilder`):
 
 ```yaml
 dependencies:
@@ -404,9 +409,9 @@ import 'package:hyper_render_media/hyper_render_media.dart';
 HyperViewer(
   html: htmlWithVideo,
   // One-line integration with sensible defaults:
-  mediaBuilder: HyperMediaBuilder.videoPlayer(),
+  widgetBuilder: HyperMediaBuilder.videoPlayer(),
   // Or customize:
-  mediaBuilder: HyperMediaBuilder.videoPlayer(
+  widgetBuilder: HyperMediaBuilder.videoPlayer(
     autoplayPolicy: AutoplayPolicy.allowOnWiFi,
     cachingStrategy: CachingStrategy.aggressive,
   ),
@@ -417,7 +422,7 @@ HyperViewer(
 
 Have a multimedia integration example to share? Submit a PR!
 
-- Add your example to `multimedia_example.dart`
+- Add your example to the demo app (`example/lib/`)
 - Update this README
 - Include screenshots/GIFs if possible
 
@@ -427,4 +432,4 @@ MIT License - see [LICENSE](../LICENSE) for details.
 
 ---
 
-**Questions?** Open an issue at https://github.com/vietnguyentuan/hyper_render/issues
+**Questions?** Open an issue at https://github.com/brewkits/hyper_render/issues
