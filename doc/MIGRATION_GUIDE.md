@@ -1,6 +1,15 @@
 # Migration Guide
 
-> **Current version: v1.11.0**
+> **Current version: v1.12.0**
+
+## Upgrading to v1.12.0
+
+No API changes, but on a **dark surface** (a dark `Theme`, or a light `textColor`) the built-in colors of links, `<h6>`, `<code>` / `<pre>` and `<mark>` change to dark-surface variants with at least 4.5:1 contrast ([#23](https://github.com/brewkits/hyper_render/issues/23)); inline `<code>` and `<mark>` become dark chips instead of bright blocks. Light-surface output is unchanged. The palette is chosen from the effective text color, so a dark `Theme` with `textColor: Colors.black87` (a white pane) keeps the light-surface palette. Your own CSS (`a { color }`, inline `style`) still wins.
+
+```yaml
+dependencies:
+  hyper_render: ^1.12.0
+```
 
 ## Upgrading to v1.11.0
 
@@ -206,6 +215,9 @@ These APIs are stable and will remain backward-compatible in v2.0:
 ---
 
 ## Version History
+
+### v1.12.0 (October 2026)
+- Dark-surface colors for links, `<h6>`, `<code>` / `<pre>` and `<mark>` ([#23](https://github.com/brewkits/hyper_render/issues/23))
 
 ### v1.11.0 (October 2026)
 - Dark-theme text default, `HyperViewer(textColor:)`, `body`/`html` `color`, `:root` fix, contrast guard ([#20](https://github.com/brewkits/hyper_render/issues/20))

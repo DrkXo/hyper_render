@@ -12,7 +12,8 @@ This document outlines the architectural roadmap for **HyperRender** to become t
 | **v1.8.0** | Shipped | **AI & LLM Token-Streaming Engine** | Frame-throttled token updates with adaptive backoff, transient syntax auto-repair, auto-scroll locking. Tail-only layout invalidation remains a separate, unscheduled epic — see below. |
 | **v1.9.0** | Shipped | **Wrapping Flexbox** | `flex-wrap: wrap` on a dedicated `RenderFlexWrap` (#15). |
 | **v1.10.0** | Shipped 2026-10-02 | **DevTools v2 & Stylesheet CSS Correctness** | Timeline / Selection / live CSS-variable / snapshot DevTools tabs; stylesheet `var()`, `url()`, `calc()` and `:root` fixed. |
-| **v1.11.0** | Release candidate | **Dark Mode & Root Colors** | Dark-`Theme` text default, `HyperViewer(textColor:)` / `EpubReader(textColor:)`, `body`/`html` `color`, `:root` fix, contrast guard (#20). |
+| **v1.11.0** | Shipped 2026-10-04 | **Dark Mode & Root Colors** | Dark-`Theme` text default, `HyperViewer(textColor:)` / `EpubReader(textColor:)`, `body`/`html` `color`, `:root` fix, contrast guard (#20). |
+| **v1.12.0** | Shipped 2026-10-04 | **Dark-Surface Element Colors** | Links, `<h6>`, `<code>` / `<pre>`, `<mark>` keep >= 4.5:1 on dark surfaces (#23). |
 | **Next** | Unscheduled | **Native Vector Diagramming & Headless Export** | Pure Canvas/Vector Mermaid.js & GraphViz (Zero-WebView), Headless Image & PDF byte stream generator. |
 | **v2.0.0** | Q1 2027 | **Interactive Editorial & Magazine Typography** | Medium-style Text Annotation/Highlighting layer, Multi-column layout (`column-count`), Z-Index Stacking Context, Vertical Text (`writing-mode: vertical-rl`). |
 
