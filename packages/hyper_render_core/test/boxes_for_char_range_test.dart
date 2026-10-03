@@ -119,11 +119,12 @@ void main() {
       final box = await _pump(tester, doc, width: 400);
       // Range 0..8 covers the entire "   hello" text including leading spaces.
       final rects = box.getBoxesForCharRange(0, preText.length);
+      final helloRects = box.getBoxesForCharRange(3, 8);
       expect(rects, isNotEmpty,
           reason:
               'pre-formatted text with leading spaces should produce a rect');
-      // The rect must include the space width — wider than just "hello".
-      expect(rects.first.width, greaterThan(20.0));
+      expect(helloRects, hasLength(1));
+      expect(rects.first.width, greaterThan(helloRects.first.width));
     });
 
     testWidgets(
@@ -145,10 +146,10 @@ void main() {
       ]);
 
       final box = await _pump(tester, doc, width: 600);
-      // Char range 0..11 covers the logical text "hello  world" (image is not
+      // Char range 0..12 covers the logical text "hello  world" (image is not
       // a text character, so "hello " is 6 chars and " world" is 6 chars).
       final rects = box.getBoxesForCharRange(0, 12);
-      expect(rects, isNotEmpty);
+      expect(rects, hasLength(2));
       // Each rect must have non-trivial width — not a collapsed zero-width rect.
       for (final r in rects) {
         expect(r.width, greaterThan(10.0),
