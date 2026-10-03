@@ -6,6 +6,7 @@
 - **`StyleResolver.ensureReadableOnOwnBackground`** (default off) — an element with its own opaque background and no color of its own never inherits text under 3:1 contrast against that background; it falls back to dark gray or white. `HyperViewer` enables it whenever it supplies a default text color.
 - **`body { color }` / `html { color }` are honoured** (they never matched before — no node is tagged `body` or `html`). Applied to the document root with browser layering `html` < `:root` < `body`; only `color`, because other body properties would change the root's own box. Behavior change for content that declares one.
 - **`:root` matches the document root only** (`node is DocumentNode`). The 1.10.0 check, `parent == null`, also matched every top-level block, so `:root { color }` beat `p { color }` and `:root { font-size: 62.5% }` compounded once more on top-level blocks.
+- **Block-tier plugins on custom tags now render.** `<info-box>`, `<x-badge>` and any other tag without a UA display style are built by the HTML adapters as inline nodes, so a registered **block** plugin on them never took the block path: its widget was built, linked to no fragment, laid out at 0×0 and never painted, with "Layout Warning: More child widgets than fragments" in debug. Only tags that are already block (`figure`, `div`) worked. A registered block tag is now treated as a block whatever its node type. Existing tests passed because they hand-built `BlockNode`s or only asserted `findsOneWidget`, which a 0×0 widget satisfies.
 
 ## 1.10.0
 
