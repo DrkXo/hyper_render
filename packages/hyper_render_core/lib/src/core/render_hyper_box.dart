@@ -1801,12 +1801,9 @@ class RenderHyperBox extends RenderBox
   /// have no rect. Consumers must tolerate gaps rather than assume that one
   /// fragment's `charEnd` is the next fragment's `charStart`.
   ///
-  /// This also exposes two fragment fields that [debugFragments] omits:
-  /// [Fragment.rubyText], the reading drawn above the base text, which differs
-  /// from the base characters in content and in length; and
-  /// [Fragment.ellipsisVisibleLength], the clamp limiting how much of a
-  /// truncated fragment reached the screen. Without the latter a consumer cannot
-  /// tell that the remaining characters were never painted.
+  /// This also exposes [Fragment.ellipsisVisibleLength] separately from the
+  /// derived character length in [debugFragments], so consumers can tell how
+  /// much of a truncated fragment reached the screen.
   List<Map<String, dynamic>> debugLineFragments() {
     final result = <Map<String, dynamic>>[];
     for (var lineIndex = 0; lineIndex < _lines.length; lineIndex++) {
@@ -1835,114 +1832,6 @@ class RenderHyperBox extends RenderBox
       }
     }
     return result;
-  }
-
-  /// Returns exact pixel-snapped bounding boxes for characters in `[charStart, charEnd)`
-  /// within this RenderHyperBox's local coordinate space.
-  ///
-  /// Glyph x-boundaries come from [TextPainter.getBoxesForSelection] with
-  /// [ui.BoxHeightStyle.tight]; y-boundaries use the line's [top] and [height]
-  /// so highlight rows align with the rendered line grid.
-  /// Adjacent boxes on the same line are merged to produce clean contiguous highlight rects.
-  List<Rect> getBoxesForCharRange(int charStart, int charEnd) {
-    if (charEnd <= charStart || _lines.isEmpty) return const [];
-    final rects = <Rect>[];
-
-    for (final line in _lines) {
-      final currentLineRects = <Rect>[];
-
-      for (final fragment in line.fragments) {
-        if ((fragment.type == FragmentType.text ||
-                fragment.type == FragmentType.ruby) &&
-            fragment.text != null) {
-          final fragmentLength = fragment.text!.length;
-          final fragmentStart = fragment.globalOffset;
-          final fragmentEnd = fragmentStart + fragmentLength;
-
-          // Check if this fragment overlaps with the range
-          if (fragmentEnd > charStart && fragmentStart < charEnd) {
-            final selectStart = math.max(0, charStart - fragmentStart);
-            final selectEnd = math.min(fragmentLength, charEnd - fragmentStart);
-
-            final text = fragment.text!;
-            int visualStart = selectStart;
-            int visualEnd = selectEnd;
-            final ws = fragment.style.whiteSpace;
-            final isPreformatted =
-                ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
-            if (!isPreformatted) {
-              if (fragmentStart <= charStart) {
-                while (visualStart < visualEnd && text[visualStart] == ' ') {
-                  visualStart++;
-                }
-              }
-              if (fragmentEnd >= charEnd) {
-                while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-                  visualEnd--;
-                }
-              }
-            }
-
-            if (visualStart < visualEnd) {
-              if (fragment.type == FragmentType.ruby) {
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                currentLineRects.add(Rect.fromLTWH(
-                  fragmentOffset.dx,
-                  line.top,
-                  fragment.width,
-                  line.height,
-                ));
-              } else {
-                final painter =
-                    _getTextPainter(text, _effectiveFragmentStyle(fragment));
-                final boxes = painter.getBoxesForSelection(
-                  TextSelection(
-                    baseOffset: visualStart,
-                    extentOffset: visualEnd,
-                  ),
-                  boxHeightStyle: ui.BoxHeightStyle.tight,
-                );
-
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                for (final box in boxes) {
-                  if (box.right <= box.left) continue;
-                  currentLineRects.add(Rect.fromLTRB(
-                    fragmentOffset.dx + box.left,
-                    line.top,
-                    fragmentOffset.dx + box.right,
-                    line.top + line.height,
-                  ));
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (currentLineRects.isEmpty) continue;
-
-      // Merge horizontally contiguous rects on the same line
-      currentLineRects.sort((a, b) => a.left.compareTo(b.left));
-      Rect current = currentLineRects.first;
-      final maxGap = math.max(16.0, line.height);
-      for (var i = 1; i < currentLineRects.length; i++) {
-        final next = currentLineRects[i];
-        if (next.left <= current.right + maxGap) {
-          current = Rect.fromLTRB(
-            current.left,
-            math.min(current.top, next.top),
-            math.max(current.right, next.right),
-            math.max(current.bottom, next.bottom),
-          );
-        } else {
-          rects.add(current);
-          current = next;
-        }
-      }
-      rects.add(current);
-    }
-
-    return rects;
   }
 
   Map<String, dynamic> _serializeNode(UDTNode node) {
