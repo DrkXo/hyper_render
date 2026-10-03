@@ -232,17 +232,21 @@ void main() {
         return sw.elapsedMicroseconds;
       }
 
-      // Warm up, then take the best of several runs to damp scheduler noise.
-      run('p { margin: 4px; }', null);
-      var base = 1 << 30, rooted = 1 << 30;
-      for (var i = 0; i < 5; i++) {
-        base = base < run('p { margin: 4px; }', null)
-            ? base
-            : run('p { margin: 4px; }', null);
-        rooted = rooted < run(css, const Color(0xFFABCDEF))
-            ? rooted
-            : run(css, const Color(0xFFABCDEF));
+      // Warm up, then take the best of 9 runs each: the minimum is the sample
+      // least disturbed by a busy CI runner. Measured cost is ~1.1x; the 3x
+      // bound only has to catch an accidental O(rules) or O(nodes^2) walk.
+      int best(String stylesheet, Color? override) {
+        run(stylesheet, override);
+        var m = 1 << 30;
+        for (var i = 0; i < 9; i++) {
+          final v = run(stylesheet, override);
+          if (v < m) m = v;
+        }
+        return m;
       }
+
+      final base = best('p { margin: 4px; }', null);
+      final rooted = best(css, const Color(0xFFABCDEF));
       expect(rooted, lessThan(base * 3 + 5000),
           reason: 'base=${base}us rooted=${rooted}us');
     });
