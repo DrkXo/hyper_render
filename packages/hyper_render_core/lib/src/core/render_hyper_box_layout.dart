@@ -1314,7 +1314,9 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
                 sourceNode: fragment.sourceNode,
                 style: fragment.style,
                 characterOffset: fragment.characterOffset,
-              )..globalOffset = fragment.globalOffset;
+              )
+                ..globalOffset = fragment.globalOffset
+                ..ellipsisVisibleLength = clippedText.length;
               _measureFragment(truncFrag);
               truncFrag.offset = Offset(currentX, currentY);
               currentLineFragments.add(truncFrag);
@@ -1325,14 +1327,17 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
               fragment.ellipsisVisibleLength = clippedText.length;
             }
           }
-        } else if (currentLineFragments.isEmpty) {
+        }
+        if (currentLineFragments.isEmpty) {
           // Not even enough room for ellipsis alone — just show ellipsis
           final ellipsisFrag = Fragment.text(
             text: ellipsisChar,
             sourceNode: fragment.sourceNode,
             style: fragment.style,
             characterOffset: fragment.characterOffset,
-          )..globalOffset = fragment.globalOffset;
+          )
+            ..globalOffset = fragment.globalOffset
+            ..ellipsisVisibleLength = 0;
           _measureFragment(ellipsisFrag);
           ellipsisFrag.offset = Offset(currentX, currentY);
           currentLineFragments.add(ellipsisFrag);

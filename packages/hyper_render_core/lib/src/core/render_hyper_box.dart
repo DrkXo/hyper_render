@@ -1812,12 +1812,14 @@ class RenderHyperBox extends RenderBox
         final rect = fragment.rect;
         if (rect == null) continue;
         final text = fragment.text;
+        final charLength =
+            fragment.ellipsisVisibleLength ?? (text?.length ?? 0);
         result.add(<String, dynamic>{
           'type': fragment.type.name,
           'text': text,
           'rubyText': fragment.rubyText,
           'charStart': fragment.globalOffset,
-          'charEnd': fragment.globalOffset + (text?.length ?? 0),
+          'charEnd': fragment.globalOffset + charLength,
           'ellipsisVisibleLength': fragment.ellipsisVisibleLength,
           'lineIndex': lineIndex,
           'lineTop': line.top,

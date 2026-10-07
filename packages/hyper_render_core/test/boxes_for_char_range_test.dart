@@ -130,9 +130,9 @@ void main() {
     testWidgets(
         'inline image between two words does not spuriously merge word rects',
         (tester) async {
-      // "hello " + 16px image + " world" — the maxGap heuristic introduced in
-      // f5a313b must not bridge the gap caused by the image column and collapse
-      // two separate word rects into one.
+      // "hello " + 16px image + " world" — the maxGap heuristic must not bridge
+      // the gap caused by the image column and collapse two separate word rects
+      // into one.
       final doc = DocumentNode(children: [
         BlockNode.p(children: [
           TextNode('hello '),

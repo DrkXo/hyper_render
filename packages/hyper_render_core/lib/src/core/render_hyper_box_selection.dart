@@ -219,6 +219,93 @@ extension RenderHyperBoxSelection on RenderHyperBox {
     }
   }
 
+  /// Computes bounding boxes for a single text or ruby [fragment] overlapping
+  /// `[rangeStart, rangeEnd)`.
+  ///
+  /// When [lineTop] and [lineHeight] are provided (as in [getBoxesForCharRange]),
+  /// the returned rects span the full vertical line grid. When omitted (as in
+  /// [getSelectionRects]), boxes use tight glyph height relative to the fragment offset.
+  List<Rect> _getFragmentBoxesForRange({
+    required Fragment fragment,
+    required int rangeStart,
+    required int rangeEnd,
+    double? lineTop,
+    double? lineHeight,
+    bool trimBoundarySpacesOnly = false,
+  }) {
+    if ((fragment.type != FragmentType.text &&
+            fragment.type != FragmentType.ruby) ||
+        fragment.text == null) {
+      return const [];
+    }
+
+    final fragmentLength =
+        fragment.ellipsisVisibleLength ?? fragment.text!.length;
+    if (fragmentLength == 0) return const [];
+    final fragmentStart = fragment.globalOffset;
+    final fragmentEnd = fragmentStart + fragmentLength;
+
+    if (fragmentEnd <= rangeStart || fragmentStart >= rangeEnd) {
+      return const [];
+    }
+
+    final selectStart = math.max(0, rangeStart - fragmentStart);
+    final selectEnd = math.min(fragmentLength, rangeEnd - fragmentStart);
+
+    final text = fragment.text!;
+    int visualStart = selectStart;
+    int visualEnd = selectEnd;
+    final ws = fragment.style.whiteSpace;
+    final isPreformatted =
+        ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
+    if (!isPreformatted) {
+      if (!trimBoundarySpacesOnly || fragmentStart <= rangeStart) {
+        while (visualStart < visualEnd && text[visualStart] == ' ') {
+          visualStart++;
+        }
+      }
+      if (!trimBoundarySpacesOnly || fragmentEnd >= rangeEnd) {
+        while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
+          visualEnd--;
+        }
+      }
+    }
+
+    if (visualStart >= visualEnd) return const [];
+
+    final fragmentOffset = fragment.offset ?? Offset.zero;
+    final useLineHeight = lineTop != null && lineHeight != null;
+
+    if (fragment.type == FragmentType.ruby) {
+      return [
+        Rect.fromLTWH(
+          fragmentOffset.dx,
+          useLineHeight ? lineTop : fragmentOffset.dy,
+          fragment.width,
+          useLineHeight ? lineHeight : fragment.height,
+        ),
+      ];
+    }
+
+    final painter = _getTextPainter(text, _effectiveFragmentStyle(fragment));
+    final boxes = painter.getBoxesForSelection(
+      TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
+      boxHeightStyle: ui.BoxHeightStyle.tight,
+    );
+
+    final result = <Rect>[];
+    for (final box in boxes) {
+      if (box.right <= box.left) continue;
+      result.add(Rect.fromLTRB(
+        fragmentOffset.dx + box.left,
+        useLineHeight ? lineTop : fragmentOffset.dy + box.top,
+        fragmentOffset.dx + box.right,
+        useLineHeight ? lineTop + lineHeight : fragmentOffset.dy + box.bottom,
+      ));
+    }
+    return result;
+  }
+
   /// Get selection rects for rendering handles
   List<Rect> getSelectionRects() {
     if (_selection == null || !_selection!.isValid || _selection!.isCollapsed) {
@@ -229,72 +316,11 @@ extension RenderHyperBoxSelection on RenderHyperBox {
 
     for (final line in _lines) {
       for (final fragment in line.fragments) {
-        if ((fragment.type == FragmentType.text ||
-                fragment.type == FragmentType.ruby) &&
-            fragment.text != null) {
-          final fragmentLength = fragment.text!.length;
-          final fragmentStart = fragment.globalOffset;
-          final fragmentEnd = fragmentStart + fragmentLength;
-
-          // Check if this fragment overlaps with selection
-          if (fragmentEnd > _selection!.start &&
-              fragmentStart < _selection!.end) {
-            final selectStart = math.max(0, _selection!.start - fragmentStart);
-            final selectEnd =
-                math.min(fragmentLength, _selection!.end - fragmentStart);
-
-            // Trim trailing/leading spaces for visual bounds, but preserve them
-            // in preformatted contexts where indentation is meaningful.
-            final text = fragment.text!;
-            int visualStart = selectStart;
-            int visualEnd = selectEnd;
-            final ws = fragment.style.whiteSpace;
-            final isPreformatted =
-                ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
-            if (!isPreformatted) {
-              while (visualStart < visualEnd && text[visualStart] == ' ') {
-                visualStart++;
-              }
-              while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-                visualEnd--;
-              }
-            }
-
-            if (visualStart < visualEnd) {
-              if (fragment.type == FragmentType.ruby) {
-                // Ruby selection highlight covers the whole fragment rect
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                rects.add(Rect.fromLTWH(
-                  fragmentOffset.dx,
-                  fragmentOffset.dy,
-                  fragment.width,
-                  fragment.height,
-                ));
-              } else {
-                // Effective style so justified selection boxes line up with
-                // the widened glyphs.
-                final painter =
-                    _getTextPainter(text, _effectiveFragmentStyle(fragment));
-                final boxes = painter.getBoxesForSelection(
-                  TextSelection(
-                      baseOffset: visualStart, extentOffset: visualEnd),
-                  boxHeightStyle: ui.BoxHeightStyle.tight,
-                );
-
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                for (final box in boxes) {
-                  if (box.right <= box.left) continue;
-                  rects.add(Rect.fromLTRB(
-                    fragmentOffset.dx + box.left,
-                    fragmentOffset.dy + box.top,
-                    fragmentOffset.dx + box.right,
-                    fragmentOffset.dy + box.bottom,
-                  ));
-                }
-              }
-            }
-          }
-        }
+        rects.addAll(_getFragmentBoxesForRange(
+          fragment: fragment,
+          rangeStart: _selection!.start,
+          rangeEnd: _selection!.end,
+        ));
       }
     }
 
@@ -303,6 +329,9 @@ extension RenderHyperBoxSelection on RenderHyperBox {
 
   /// Returns bounding boxes for characters in `[charStart, charEnd)` within
   /// this RenderHyperBox's local coordinate space.
+  ///
+  /// Offsets are local to this [RenderHyperBox]. In virtualized/auto mode
+  /// (>10k chars), each chunk has its own box, and offsets restart at 0.
   ///
   /// Glyph x-boundaries come from [TextPainter.getBoxesForSelection] with
   /// [ui.BoxHeightStyle.tight]; vertical bounds use `line.top` and
@@ -322,75 +351,17 @@ extension RenderHyperBoxSelection on RenderHyperBox {
           continue;
         }
 
-        if ((fragment.type == FragmentType.text ||
-                fragment.type == FragmentType.ruby) &&
-            fragment.text != null) {
-          final fragmentLength = fragment.text!.length;
-          final fragmentStart = fragment.globalOffset;
-          final fragmentEnd = fragmentStart + fragmentLength;
+        final fragmentBoxes = _getFragmentBoxesForRange(
+          fragment: fragment,
+          rangeStart: charStart,
+          rangeEnd: charEnd,
+          lineTop: line.top,
+          lineHeight: line.height,
+          trimBoundarySpacesOnly: true,
+        );
 
-          if (fragmentEnd > charStart && fragmentStart < charEnd) {
-            final selectStart = math.max(0, charStart - fragmentStart);
-            final selectEnd = math.min(fragmentLength, charEnd - fragmentStart);
-
-            final text = fragment.text!;
-            int visualStart = selectStart;
-            int visualEnd = selectEnd;
-            final ws = fragment.style.whiteSpace;
-            final isPreformatted =
-                ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
-            if (!isPreformatted) {
-              if (fragmentStart <= charStart) {
-                while (visualStart < visualEnd && text[visualStart] == ' ') {
-                  visualStart++;
-                }
-              }
-              if (fragmentEnd >= charEnd) {
-                while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-                  visualEnd--;
-                }
-              }
-            }
-
-            if (visualStart < visualEnd) {
-              if (fragment.type == FragmentType.ruby) {
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                currentLineRects.add((
-                  rect: Rect.fromLTWH(
-                    fragmentOffset.dx,
-                    line.top,
-                    fragment.width,
-                    line.height,
-                  ),
-                  mergeGroup: mergeGroup,
-                ));
-              } else {
-                final painter =
-                    _getTextPainter(text, _effectiveFragmentStyle(fragment));
-                final boxes = painter.getBoxesForSelection(
-                  TextSelection(
-                    baseOffset: visualStart,
-                    extentOffset: visualEnd,
-                  ),
-                  boxHeightStyle: ui.BoxHeightStyle.tight,
-                );
-
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                for (final box in boxes) {
-                  if (box.right <= box.left) continue;
-                  currentLineRects.add((
-                    rect: Rect.fromLTRB(
-                      fragmentOffset.dx + box.left,
-                      line.top,
-                      fragmentOffset.dx + box.right,
-                      line.top + line.height,
-                    ),
-                    mergeGroup: mergeGroup,
-                  ));
-                }
-              }
-            }
-          }
+        for (final box in fragmentBoxes) {
+          currentLineRects.add((rect: box, mergeGroup: mergeGroup));
         }
       }
 
