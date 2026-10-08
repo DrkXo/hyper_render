@@ -193,7 +193,10 @@ void main() {
   testWidgets('spaces at the start of a line are removed', (tester) async {
     final box = await _pump(
       tester,
-      '<p>\n   first line<br>   second line<br> <b>third</b></p>',
+      '<p>\n   first line<br>   second line<br> <b>third</b></p>'
+      // "Bold with nested" is 16 glyphs, so " inside" moves whole to the
+      // next line, which must not start with its space.
+      '<p><b>Bold with <i>nested</i> inside</b> and back</p>',
     );
     final lines = _textLines(box);
     for (final f in lines.where((f) => f['offsetX'] == 0.0)) {
@@ -201,7 +204,7 @@ void main() {
           reason: 'line ${f['lineIndex']} starts with a space');
     }
     expect(lines.map((f) => f['text']),
-        containsAll(['first line', 'second line', 'third']));
+        containsAll(['first line', 'second line', 'third', 'inside']));
   });
 
   testWidgets('right-aligned lines end flush, ignoring the trailing space',

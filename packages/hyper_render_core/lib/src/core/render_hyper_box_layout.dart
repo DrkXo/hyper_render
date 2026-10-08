@@ -1437,10 +1437,14 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
             }
           }
 
-          // Can't split to fit - start new line
+          // Can't split to fit - start new line, and process the fragment
+          // again there so the line-start rules (leading-space collapse)
+          // apply to it.
           if (currentLineFragments.isNotEmpty) {
             finishLine();
             currentX = leftInset;
+            pendingFragment = fragment;
+            return;
           }
 
           // Now check if fragment is wider than full line width
