@@ -219,6 +219,93 @@ extension RenderHyperBoxSelection on RenderHyperBox {
     }
   }
 
+  /// Computes bounding boxes for a single text or ruby [fragment] overlapping
+  /// `[rangeStart, rangeEnd)`.
+  ///
+  /// When [lineTop] and [lineHeight] are provided (as in [getBoxesForCharRange]),
+  /// the returned rects span the full vertical line grid. When omitted (as in
+  /// [getSelectionRects]), boxes use tight glyph height relative to the fragment offset.
+  List<Rect> _getFragmentBoxesForRange({
+    required Fragment fragment,
+    required int rangeStart,
+    required int rangeEnd,
+    double? lineTop,
+    double? lineHeight,
+    bool trimBoundarySpacesOnly = false,
+  }) {
+    if ((fragment.type != FragmentType.text &&
+            fragment.type != FragmentType.ruby) ||
+        fragment.text == null) {
+      return const [];
+    }
+
+    final fragmentLength =
+        fragment.ellipsisVisibleLength ?? fragment.text!.length;
+    if (fragmentLength == 0) return const [];
+    final fragmentStart = fragment.globalOffset;
+    final fragmentEnd = fragmentStart + fragmentLength;
+
+    if (fragmentEnd <= rangeStart || fragmentStart >= rangeEnd) {
+      return const [];
+    }
+
+    final selectStart = math.max(0, rangeStart - fragmentStart);
+    final selectEnd = math.min(fragmentLength, rangeEnd - fragmentStart);
+
+    final text = fragment.text!;
+    int visualStart = selectStart;
+    int visualEnd = selectEnd;
+    final ws = fragment.style.whiteSpace;
+    final isPreformatted =
+        ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
+    if (!isPreformatted) {
+      if (!trimBoundarySpacesOnly || fragmentStart <= rangeStart) {
+        while (visualStart < visualEnd && text[visualStart] == ' ') {
+          visualStart++;
+        }
+      }
+      if (!trimBoundarySpacesOnly || fragmentEnd >= rangeEnd) {
+        while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
+          visualEnd--;
+        }
+      }
+    }
+
+    if (visualStart >= visualEnd) return const [];
+
+    final fragmentOffset = fragment.offset ?? Offset.zero;
+    final useLineHeight = lineTop != null && lineHeight != null;
+
+    if (fragment.type == FragmentType.ruby) {
+      return [
+        Rect.fromLTWH(
+          fragmentOffset.dx,
+          useLineHeight ? lineTop : fragmentOffset.dy,
+          fragment.width,
+          useLineHeight ? lineHeight : fragment.height,
+        ),
+      ];
+    }
+
+    final painter = _getTextPainter(text, _effectiveFragmentStyle(fragment));
+    final boxes = painter.getBoxesForSelection(
+      TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
+      boxHeightStyle: ui.BoxHeightStyle.tight,
+    );
+
+    final result = <Rect>[];
+    for (final box in boxes) {
+      if (box.right <= box.left) continue;
+      result.add(Rect.fromLTRB(
+        fragmentOffset.dx + box.left,
+        useLineHeight ? lineTop : fragmentOffset.dy + box.top,
+        fragmentOffset.dx + box.right,
+        useLineHeight ? lineTop + lineHeight : fragmentOffset.dy + box.bottom,
+      ));
+    }
+    return result;
+  }
+
   /// Get selection rects for rendering handles
   List<Rect> getSelectionRects() {
     if (_selection == null || !_selection!.isValid || _selection!.isCollapsed) {
@@ -229,73 +316,78 @@ extension RenderHyperBoxSelection on RenderHyperBox {
 
     for (final line in _lines) {
       for (final fragment in line.fragments) {
-        if ((fragment.type == FragmentType.text ||
-                fragment.type == FragmentType.ruby) &&
-            fragment.text != null) {
-          final fragmentLength = fragment.text!.length;
-          final fragmentStart = fragment.globalOffset;
-          final fragmentEnd = fragmentStart + fragmentLength;
+        rects.addAll(_getFragmentBoxesForRange(
+          fragment: fragment,
+          rangeStart: _selection!.start,
+          rangeEnd: _selection!.end,
+        ));
+      }
+    }
 
-          // Check if this fragment overlaps with selection
-          if (fragmentEnd > _selection!.start &&
-              fragmentStart < _selection!.end) {
-            final selectStart = math.max(0, _selection!.start - fragmentStart);
-            final selectEnd =
-                math.min(fragmentLength, _selection!.end - fragmentStart);
+    return rects;
+  }
 
-            // Trim trailing/leading spaces for visual bounds, but preserve them
-            // in preformatted contexts where indentation is meaningful.
-            final text = fragment.text!;
-            int visualStart = selectStart;
-            int visualEnd = selectEnd;
-            final ws = fragment.style.whiteSpace;
-            final isPreformatted =
-                ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
-            if (!isPreformatted) {
-              while (visualStart < visualEnd && text[visualStart] == ' ') {
-                visualStart++;
-              }
-              while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-                visualEnd--;
-              }
-            }
+  /// Returns bounding boxes for characters in `[charStart, charEnd)` within
+  /// this RenderHyperBox's local coordinate space.
+  ///
+  /// Offsets are local to this [RenderHyperBox]. In virtualized/auto mode
+  /// (>10k chars), each chunk has its own box, and offsets restart at 0.
+  ///
+  /// Glyph x-boundaries come from [TextPainter.getBoxesForSelection] with
+  /// [ui.BoxHeightStyle.tight]; vertical bounds use `line.top` and
+  /// `line.height` to align highlights with the rendered line grid. Adjacent
+  /// text boxes merge unless an atomic fragment separates them.
+  List<Rect> getBoxesForCharRange(int charStart, int charEnd) {
+    if (charEnd <= charStart || _lines.isEmpty) return const [];
+    final rects = <Rect>[];
 
-            if (visualStart < visualEnd) {
-              if (fragment.type == FragmentType.ruby) {
-                // Ruby selection highlight covers the whole fragment rect
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                rects.add(Rect.fromLTWH(
-                  fragmentOffset.dx,
-                  fragmentOffset.dy,
-                  fragment.width,
-                  fragment.height,
-                ));
-              } else {
-                // Effective style so justified selection boxes line up with
-                // the widened glyphs.
-                final painter =
-                    _getTextPainter(text, _effectiveFragmentStyle(fragment));
-                final boxes = painter.getBoxesForSelection(
-                  TextSelection(
-                      baseOffset: visualStart, extentOffset: visualEnd),
-                  boxHeightStyle: ui.BoxHeightStyle.tight,
-                );
+    for (final line in _lines) {
+      final currentLineRects = <({Rect rect, int mergeGroup})>[];
+      var mergeGroup = 0;
 
-                final fragmentOffset = fragment.offset ?? Offset.zero;
-                for (final box in boxes) {
-                  if (box.right <= box.left) continue;
-                  rects.add(Rect.fromLTRB(
-                    fragmentOffset.dx + box.left,
-                    fragmentOffset.dy + box.top,
-                    fragmentOffset.dx + box.right,
-                    fragmentOffset.dy + box.bottom,
-                  ));
-                }
-              }
-            }
-          }
+      for (final fragment in line.fragments) {
+        if (fragment.type == FragmentType.atomic) {
+          mergeGroup++;
+          continue;
+        }
+
+        final fragmentBoxes = _getFragmentBoxesForRange(
+          fragment: fragment,
+          rangeStart: charStart,
+          rangeEnd: charEnd,
+          lineTop: line.top,
+          lineHeight: line.height,
+          trimBoundarySpacesOnly: true,
+        );
+
+        for (final box in fragmentBoxes) {
+          currentLineRects.add((rect: box, mergeGroup: mergeGroup));
         }
       }
+
+      if (currentLineRects.isEmpty) continue;
+
+      currentLineRects.sort((a, b) => a.rect.left.compareTo(b.rect.left));
+      var current = currentLineRects.first.rect;
+      var currentGroup = currentLineRects.first.mergeGroup;
+      final maxGap = math.max(16.0, line.height);
+      for (var i = 1; i < currentLineRects.length; i++) {
+        final next = currentLineRects[i];
+        if (next.mergeGroup == currentGroup &&
+            next.rect.left <= current.right + maxGap) {
+          current = Rect.fromLTRB(
+            current.left,
+            math.min(current.top, next.rect.top),
+            math.max(current.right, next.rect.right),
+            math.max(current.bottom, next.rect.bottom),
+          );
+        } else {
+          rects.add(current);
+          current = next.rect;
+          currentGroup = next.mergeGroup;
+        }
+      }
+      rects.add(current);
     }
 
     return rects;

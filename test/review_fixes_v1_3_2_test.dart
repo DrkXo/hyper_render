@@ -160,6 +160,53 @@ void main() {
     );
 
     testWidgets(
+      '#5 — debugLineFragments and getBoxesForCharRange respect ellipsisVisibleLength',
+      (tester) async {
+        const html = '<p>x</p><div style="overflow:hidden;'
+            'text-overflow:ellipsis;white-space:nowrap">'
+            'visible head SECRET TAIL</div>';
+
+        final key = GlobalKey<HyperSelectionOverlayState>();
+        final doc = _parseAndResolve(html);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 80,
+                height: 200,
+                child: HyperSelectionOverlay(key: key, document: doc),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final box = tester.renderObject<RenderHyperBox>(
+          find.byType(HyperRenderWidget),
+        );
+
+        final lineFragments = box.debugLineFragments();
+        final truncLineFrag = lineFragments.firstWhere(
+          (f) => (f['text'] as String? ?? '').endsWith('\u2026'),
+        );
+
+        expect(truncLineFrag['ellipsisVisibleLength'], 4);
+        expect(truncLineFrag['charStart'], 1);
+        expect(truncLineFrag['charEnd'], 5);
+
+        // Char 5 is 'b' (the 5th character of "visible", 0-indexed offset 5
+        // in the document where 'x' is 0, 'v' is 1, 'i' is 2, 's' is 3, 'i' is 4).
+        // It is clipped behind the ellipsis glyph, so getBoxesForCharRange(5, 6)
+        // must not return any bounding box.
+        expect(box.getBoxesForCharRange(5, 6), isEmpty);
+
+        // Visible chars 1..5 ('visi') return non-empty boxes.
+        expect(box.getBoxesForCharRange(1, 5), isNotEmpty);
+      },
+    );
+
+    testWidgets(
       '#6 — selection drag above first line snaps to start, not -1',
       (tester) async {
         // No exception when handle drag passes far above content; selection
