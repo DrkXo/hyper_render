@@ -1394,6 +1394,31 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
           // Now check if fragment is wider than full line width
           final fullLineWidth = getAvailableWidth();
           if (fragment.width > fullLineWidth && fragment.text!.length > 1) {
+            // A float narrows this line and not even the first word fits
+            // beside it: move down past the float (as CSS line boxes do)
+            // instead of splitting the word after its first letter.
+            final contentWidth =
+                _maxWidth - leftPaddingStack.last - rightPaddingStack.last;
+            if (fullLineWidth < contentWidth - 0.5 &&
+                !_leadingUnitFits(fragment, fullLineWidth)) {
+              double? floatBottom;
+              for (final float in [..._leftFloats, ..._rightFloats]) {
+                if (currentY >= float.rect.top &&
+                    currentY < float.rect.bottom &&
+                    (floatBottom == null || float.rect.bottom < floatBottom)) {
+                  floatBottom = float.rect.bottom;
+                }
+              }
+              if (floatBottom != null) {
+                currentY = floatBottom;
+                _cachedAvailableWidth = null;
+                getAvailableWidth(); // refreshes leftInset for the new Y
+                currentX = leftInset;
+                pendingFragment = fragment;
+                return;
+              }
+            }
+
             // Fragment is wider than entire line - FORCE split
             final forceSplit = _forceSplitTextFragment(fragment, fullLineWidth);
             if (forceSplit != null) {
@@ -1501,13 +1526,72 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     return isBeforeCjk || isAfterCjk;
   }
 
+  /// Rendered width of the first [length] code units of [painter]'s
+  /// single-line text, read from the caret position: measured from the left
+  /// edge for LTR and from the right edge for RTL. A caret lookup is cheap,
+  /// unlike summing `getBoxesForSelection(0, length)`, which costs O(length)
+  /// per call on a long paragraph.
+  double _prefixWidth(TextPainter painter, int length) {
+    if (length <= 0) return 0;
+    final caretX =
+        painter.getOffsetForCaret(TextPosition(offset: length), Rect.zero).dx;
+    return painter.textDirection == ui.TextDirection.rtl
+        ? painter.width - caretX
+        : caretX;
+  }
+
+  /// The longest prefix of [text] (laid out single-line in [painter]) whose
+  /// rendered width is at most [maxWidth].
+  ///
+  /// `getPositionForOffset(Offset(maxWidth, 0))` alone is not enough: it
+  /// returns the *nearest* caret, up to half a glyph past [maxWidth], and in
+  /// an RTL painter `x = maxWidth` from the left is the logical end of the
+  /// text, not its start. The probe is mirrored for RTL and the result is
+  /// corrected against measured prefix widths.
+  int _fitPrefixLength(TextPainter painter, String text, double maxWidth) {
+    const epsilon = 0.01;
+    final rtl = painter.textDirection == ui.TextDirection.rtl;
+    final probeX = rtl ? painter.width - maxWidth : maxWidth;
+    var fit = painter
+        .getPositionForOffset(Offset(probeX, 0))
+        .offset
+        .clamp(0, text.length);
+    while (fit > 0 && _prefixWidth(painter, fit) > maxWidth + epsilon) {
+      fit--;
+    }
+    while (fit < text.length &&
+        _prefixWidth(painter, fit + 1) <= maxWidth + epsilon) {
+      fit++;
+    }
+    return fit;
+  }
+
+  /// Whether the first unbreakable unit of [fragment] (its first word, or its
+  /// first character where any character boundary may break) fits in [width].
+  bool _leadingUnitFits(Fragment fragment, double width) {
+    final text = fragment.text!;
+    final painter = _getTextPainter(text, fragment.style);
+    final fit = _fitPrefixLength(painter, text, width);
+    if (fit <= 0) return false;
+    if (fragment.style.wordBreak == 'break-all' ||
+        KinsokuProcessor.containsCjk(text)) {
+      return true;
+    }
+    var wordStart = 0;
+    while (wordStart < text.length && text[wordStart] == ' ') {
+      wordStart++;
+    }
+    final space = text.indexOf(' ', wordStart);
+    return (space < 0 ? text.length : space) <= fit;
+  }
+
   (Fragment, Fragment)? _splitTextFragment(Fragment fragment, double maxWidth) {
     final text = fragment.text!;
     if (text.isEmpty) return null;
 
     final painter = _getTextPainter(text, fragment.style);
-    final position = painter.getPositionForOffset(Offset(maxWidth, 0));
-    int breakIndex = position.offset;
+    final fitIndex = _fitPrefixLength(painter, text, maxWidth);
+    int breakIndex = fitIndex;
 
     if (breakIndex > 0 && breakIndex < text.length) {
       final style = fragment.style;
@@ -1518,8 +1602,9 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       if (breakAll) {
         // word-break: break-all -> Break at any character
       } else {
-        final beforeBreak = text.substring(0, breakIndex);
-        final lastSpace = beforeBreak.lastIndexOf(' ');
+        // Search from breakIndex inclusive: a space right after the fitting
+        // prefix means the whole word before it fits.
+        final lastSpace = text.lastIndexOf(' ', breakIndex);
 
         if (lastSpace > 0) {
           // Found a space before break point - use it
@@ -1531,7 +1616,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
           if (isCjkBreak) {
             // Break is in CJK region - apply Kinsoku rules
             breakIndex = KinsokuProcessor.findBreakPoint(text, breakIndex);
-            if (breakIndex < 0) breakIndex = position.offset;
+            if (breakIndex < 0) breakIndex = fitIndex;
           } else if (overflowWrap) {
             // Latin-region break with overflow-wrap -> Break at character
           } else {
@@ -1645,48 +1730,32 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     final text = fragment.text!;
     if (text.length <= 1) return null;
 
-    // First, try to find a word boundary that fits
-    int breakIndex = -1;
-
-    // Find all space positions
-    final spaceIndices = <int>[];
-    for (int i = 0; i < text.length; i++) {
-      if (text[i] == ' ') {
-        spaceIndices.add(i);
-      }
-    }
-
-    // Use the full-text painter + getPositionForOffset to find where maxWidth
-    // cuts off the text, then snap back to the nearest space boundary.
-    // This is O(1) painter calls instead of O(words) substring painters.
-    if (spaceIndices.isNotEmpty) {
-      final painter = _getTextPainter(text, fragment.style);
-      final charPos = painter.getPositionForOffset(Offset(maxWidth, 0)).offset;
-      // Find the rightmost space that is at or before the cut position
-      int lo = 0, hi = spaceIndices.length - 1;
-      while (lo <= hi) {
-        final mid = (lo + hi) >> 1;
-        if (spaceIndices[mid] < charPos) {
-          breakIndex = spaceIndices[mid] + 1;
-          lo = mid + 1;
-        } else {
-          hi = mid - 1;
-        }
-      }
-    }
-
-    // If no word boundary fits, but overflow-wrap is enabled, or word-break: break-all
-    // then force split at character level
     final style = fragment.style;
     final bool breakAll = style.wordBreak == 'break-all';
     final bool overflowWrap =
         style.overflowWrap == 'break-word' || style.overflowWrap == 'anywhere';
 
+    // Longest prefix that really fits (not the nearest caret, which can run
+    // half a glyph past maxWidth, and mirrored for RTL painters).
+    final painter = _getTextPainter(text, style);
+    final fitIndex = _fitPrefixLength(painter, text, maxWidth);
+
+    // First, try to find a word boundary that fits. word-break: break-all
+    // fills the line by character instead.
+    int breakIndex = -1;
+    if (!breakAll) {
+      // A space at fitIndex itself still counts: the word before it fits.
+      final space = fitIndex < text.length
+          ? text.lastIndexOf(' ', fitIndex)
+          : text.lastIndexOf(' ');
+      if (space >= 0) breakIndex = space + 1;
+    }
+
+    // If no word boundary fits, but overflow-wrap is enabled, or word-break: break-all
+    // then force split at character level
     if (breakIndex == -1 &&
         (breakAll || overflowWrap || KinsokuProcessor.containsCjk(text))) {
-      final painter = _getTextPainter(text, fragment.style);
-      final position = painter.getPositionForOffset(Offset(maxWidth, 0));
-      breakIndex = position.offset;
+      breakIndex = fitIndex;
 
       // Adjust for CJK rules if applicable
       if (KinsokuProcessor.containsCjk(text)) {
@@ -1695,15 +1764,21 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       }
     }
 
-    // Fallback: no word boundary or CJK break was found. Split at the first
-    // character to avoid dropping the fragment entirely. Single-char text
-    // cannot be split further.
-    if (breakIndex <= 0 || breakIndex >= text.length) {
-      if (text.length > 1) {
-        breakIndex = 1;
-      } else {
-        return null;
+    // Fallback: a single word wider than the whole line. Break it after as
+    // many characters as fit (as Flutter's Text does) rather than after the
+    // first character, which used to leave a column of one-letter lines.
+    if (breakIndex <= 0) breakIndex = math.max(1, fitIndex);
+    if (breakIndex >= text.length) return null;
+
+    // Collapsible spaces at the wrap hang past the line end: keep them out of
+    // the next line's start (so its glyphs keep their character offsets).
+    final ws = style.whiteSpace;
+    final shouldTrim = ws != 'pre' && ws != 'pre-wrap' && ws != 'break-spaces';
+    if (shouldTrim) {
+      while (breakIndex < text.length && text[breakIndex] == ' ') {
+        breakIndex++;
       }
+      if (breakIndex >= text.length) return null;
     }
 
     // Ensure breakIndex aligns with grapheme cluster boundaries.
@@ -1727,7 +1802,11 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       }
     }
 
-    final firstPart = text.substring(0, breakIndex);
+    // The trailing space is not part of the line's width, so text-align
+    // centers / right-aligns the visible glyphs (as _splitTextFragment does).
+    final rawFirst = text.substring(0, breakIndex);
+    final trimmedFirst = shouldTrim ? rawFirst.trimRight() : rawFirst;
+    final firstPart = trimmedFirst.isEmpty ? rawFirst : trimmedFirst;
     final secondPart = text.substring(breakIndex);
 
     final firstFragment = Fragment.text(
