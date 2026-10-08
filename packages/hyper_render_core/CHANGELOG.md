@@ -7,6 +7,14 @@
 - **`text-overflow: ellipsis`: the truncated fragment now records how many source characters it shows.** The `ellipsisVisibleLength` was only set on the original fragment, which never reaches a line, so the `…` glyph counted as a source character.
 - **Behavior changes:** a selection highlight on truncated text no longer covers the `…` glyph, matching `getSelectedText`; and when not even one character fits before the ellipsis on an empty line, the line now shows `…` instead of nothing.
 
+- **Line-breaking fixes** (rendering changes, found while reviewing [#29](https://github.com/brewkits/hyper_render/pull/29)):
+  - **Lines no longer run past the box.** A wrap point was taken from the nearest caret rather than the last one that fits, so a line could overflow by up to half a glyph; every full CJK line did.
+  - **RTL paragraphs wrap.** The line breaker read an RTL paragraph from its logical end, putting most of it on line one and then one glyph per line.
+  - **`word-break` and `overflow-wrap` are inherited**, as in CSS. Set on a `<p>`, they never reached its text, so `word-break: break-all` had no effect.
+  - **A word wider than the line breaks after as many characters as fit** (like Flutter's `Text`), instead of after its first letter, which left a column of one-letter lines.
+  - **A word that doesn't fit beside a float moves below it** instead of being split after its first letter.
+  - **Trailing spaces at a wrap don't count toward the line's width**, so centered and right-aligned wrapped lines are now exactly centered / flush.
+
 ## 1.12.0
 
 - **`StyleResolver.darkSurface`** (default `false`) — switches the built-in link, `<h6>`, `<code>`, `<pre><code>` and `<mark>` colors to dark-surface variants with at least 4.5:1 contrast on `#121212` ([#23](https://github.com/brewkits/hyper_render/issues/23)). `HyperViewer` sets it whenever its effective default text color is light. Author CSS still wins; an `<a>` without `href` is untouched.

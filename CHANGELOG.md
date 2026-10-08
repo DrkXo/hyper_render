@@ -4,6 +4,7 @@
 
 - **Character-range highlight boxes:** `RenderHyperBox.getBoxesForCharRange(charStart, charEnd)` returns the rects of a character range, for drawing your own highlights (search hits, annotations, read-aloud). Offsets are local to each `RenderHyperBox`, so in virtualized / `auto` mode (>10k chars) they restart at 0 per chunk. Also new: `RenderHyperBox.debugLineFragments()` for the laid-out fragment geometry. By [@DrkXo](https://github.com/DrkXo) ([#26](https://github.com/brewkits/hyper_render/pull/26)).
 - **`text-overflow: ellipsis` fixes** (in `hyper_render_core`): the `…` glyph is no longer counted as a hidden source character, a selection highlight no longer covers it, and an empty line where nothing fits before the ellipsis now shows `…`.
+- **Line-breaking fixes** (in `hyper_render_core`, rendering changes): wrapped lines no longer overflow the box (every full CJK line overflowed by a fraction of a glyph), RTL paragraphs wrap properly, `word-break` / `overflow-wrap` set on a block reach its text (`break-all` had no effect), an over-long word breaks after as many characters as fit instead of after its first letter, a word that doesn't fit beside a float moves below it, and centered / right-aligned wrapped lines ignore the trailing space.
 - **Requires `hyper_render_core` `^1.13.0`.**
 
 ## 1.12.0
