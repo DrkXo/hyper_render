@@ -1,6 +1,15 @@
 # Migration Guide
 
-> **Current version: v1.12.0**
+> **Current version: v1.13.0**
+
+## Upgrading to v1.13.0
+
+No breaking changes. New: `RenderHyperBox.getBoxesForCharRange` and `debugLineFragments` ([#26](https://github.com/brewkits/hyper_render/pull/26)). Two small `text-overflow: ellipsis` changes: selecting truncated text no longer highlights the `…` glyph, and a line where not even one character fits before the ellipsis now shows `…` instead of staying empty.
+
+```yaml
+dependencies:
+  hyper_render: ^1.13.0
+```
 
 ## Upgrading to v1.12.0
 
@@ -215,6 +224,9 @@ These APIs are stable and will remain backward-compatible in v2.0:
 ---
 
 ## Version History
+
+### v1.13.0 (October 2026)
+- `RenderHyperBox.getBoxesForCharRange` / `debugLineFragments`, ellipsis character-count fix ([#26](https://github.com/brewkits/hyper_render/pull/26))
 
 ### v1.12.0 (October 2026)
 - Dark-surface colors for links, `<h6>`, `<code>` / `<pre>` and `<mark>` ([#23](https://github.com/brewkits/hyper_render/issues/23))

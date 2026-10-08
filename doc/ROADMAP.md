@@ -1,7 +1,7 @@
 # HyperRender — Product Roadmap
 
-**Last Updated**: 2026-10-03
-**Current Stable**: v1.12.0
+**Last Updated**: 2026-10-08
+**Current Stable**: v1.13.0
 **Repository**: [github.com/brewkits/hyper_render](https://github.com/brewkits/hyper_render)
 
 This document tracks the long-term direction of the HyperRender ecosystem.
@@ -33,6 +33,7 @@ For detailed CSS property tracking, see [`CSS_PROPERTIES_MATRIX.md`](CSS_PROPERT
   `hyper_render_markdown`, `hyper_render_highlight`, `hyper_render_clipboard`
 - **`hyper_render_devtools` v1.0.0** — UDT Tree inspector, Computed Style panel, Layout fragment/line data, demo mode (no live app required); published to pub.dev
 - **`hyper_render_devtools` v1.8.0** (2026-10-02) — the panel actually connects now (#17), plus Timeline, Selection debugger, live CSS-variable editing and JSON snapshot export. Requires `hyper_render_core` 1.10.0.
+- **Character-range highlight geometry** (1.13.0) — `RenderHyperBox.getBoxesForCharRange` returns line-aligned rects for any character range (search hits, annotations), and `debugLineFragments()` exposes laid-out fragment geometry; `text-overflow: ellipsis` no longer counts the `…` glyph as a source character (#26, by @DrkXo).
 - **Dark-surface element colors** (1.12.0) — links, `<h6>`, `<code>` / `<pre>` and `<mark>` switch to dark-surface variants (>= 4.5:1) when the effective text color is light (#23).
 - **Dark mode & root colors** (1.11.0) — unstyled text follows a dark `Theme`, `HyperViewer(textColor:)` / `EpubReader(textColor:)`, `body`/`html` `color` honoured, `:root` matches only the document root, readable text on light UA surfaces (#20). Block plugins on custom tags (`<info-box>`) now render (#22).
 - **Stylesheet CSS correctness** (core 1.10.0) — `var()`, `url()`, `calc()` in `<style>` / `customCss` now resolve (inline-only before), custom properties cascade before substitution, `:root` matches only the document root, `var()` expansion capped.

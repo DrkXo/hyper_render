@@ -1,5 +1,12 @@
 # Changelog — hyper_render_core
 
+## 1.13.0
+
+- **`RenderHyperBox.getBoxesForCharRange(charStart, charEnd)`** — bounding boxes for a character range, for app-drawn highlights (search hits, annotations, read-aloud). Offsets are the selection/IME character space, local to this `RenderHyperBox`: in virtualized / `auto` mode (>10k chars) each chunk has its own box and offsets restart at 0. Glyph x-bounds come from `TextPainter` (so they follow `textScaler` and justified spacing); y-bounds span the full line. Rects of adjacent words on a line merge, except across an inline atom such as an image. Spaces inside `white-space: pre` / `pre-wrap` / `break-spaces` are kept. By [@DrkXo](https://github.com/DrkXo) ([#26](https://github.com/brewkits/hyper_render/pull/26), follow-up to [#17](https://github.com/brewkits/hyper_render/pull/17)).
+- **`RenderHyperBox.debugLineFragments()`** — the fragments as laid out on lines, with the position actually painted, `charStart` / `charEnd`, line index / top / height, ruby text and `ellipsisVisibleLength`. `debugFragments()` reports pre-layout fragments and misses wrapped and truncated pieces.
+- **`text-overflow: ellipsis`: the truncated fragment now records how many source characters it shows.** The `ellipsisVisibleLength` was only set on the original fragment, which never reaches a line, so the `…` glyph counted as a source character.
+- **Behavior changes:** a selection highlight on truncated text no longer covers the `…` glyph, matching `getSelectedText`; and when not even one character fits before the ellipsis on an empty line, the line now shows `…` instead of nothing.
+
 ## 1.12.0
 
 - **`StyleResolver.darkSurface`** (default `false`) — switches the built-in link, `<h6>`, `<code>`, `<pre><code>` and `<mark>` colors to dark-surface variants with at least 4.5:1 contrast on `#121212` ([#23](https://github.com/brewkits/hyper_render/issues/23)). `HyperViewer` sets it whenever its effective default text color is light. Author CSS still wins; an `<a>` without `href` is untouched.
