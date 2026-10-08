@@ -18,6 +18,8 @@ import '../model/node.dart';
 /// HyperRenderDebugHooks.onLayoutComplete   = (id, getFrags, getLines) { ... };
 /// HyperRenderDebugHooks.onFrameTiming      = (id, phase, micros) { ... };
 /// HyperRenderDebugHooks.onSelectionChanged = (id, start, end) { ... };
+/// HyperRenderDebugHooks.onTextPainterLayout = () { ... };
+/// HyperRenderDebugHooks.onLineLayoutTextPainter = () { ... };
 /// ```
 abstract final class HyperRenderDebugHooks {
   /// Called when a [RenderHyperBox] is attached to the pipeline.
@@ -63,6 +65,14 @@ abstract final class HyperRenderDebugHooks {
   /// selection was cleared.
   static void Function(String id, int? start, int? end)? onSelectionChanged;
 
+  /// Called in debug mode whenever a TextPainter performs layout in RenderHyperBox.
+  /// Used by tests and DevTools to count text shaping operations.
+  static void Function()? onTextPainterLayout;
+
+  /// Called in debug mode whenever a TextPainter performs layout during the line-breaking
+  /// pass in RenderHyperBox.
+  static void Function()? onLineLayoutTextPainter;
+
   /// CSS custom property overrides set from DevTools (`{'--name': value}`).
   ///
   /// In debug builds `HyperViewer` passes these to its
@@ -81,5 +91,7 @@ abstract final class HyperRenderDebugHooks {
           onRendererDetached != null ||
           onLayoutComplete != null ||
           onFrameTiming != null ||
-          onSelectionChanged != null);
+          onSelectionChanged != null ||
+          onTextPainterLayout != null ||
+          onLineLayoutTextPainter != null);
 }
