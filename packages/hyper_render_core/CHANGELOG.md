@@ -13,7 +13,7 @@
   - **`word-break` and `overflow-wrap` are inherited**, as in CSS. Set on a `<p>`, they never reached its text, so `word-break: break-all` had no effect.
   - **A word wider than the line breaks after as many characters as fit** (like Flutter's `Text`), instead of after its first letter, which left a column of one-letter lines.
   - **A word that doesn't fit beside a float moves below it** instead of being split after its first letter.
-  - **Trailing spaces at a wrap don't count toward the line's width**, so centered and right-aligned wrapped lines are now exactly centered / flush.
+  - **Spaces at the start and end of a line collapse**, as in CSS. A line after `<p>` + newline, after `<br>`, or after an indented `<dt>` started one space in, and trailing spaces counted toward the width that `text-align: center/right` positions.
 
 ## 1.12.0
 

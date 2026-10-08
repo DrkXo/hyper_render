@@ -861,6 +861,32 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         currentLineFragments.removeLast();
       }
 
+      // Collapsible spaces at the end of a line hang (CSS Text 3 §4.1.2):
+      // they must not count toward the width text-align centers or
+      // right-aligns, or the visible glyphs end up one space off.
+      if (currentLineFragments.isNotEmpty) {
+        final last = currentLineFragments.last;
+        final ws = last.style.whiteSpace;
+        if (last.type == FragmentType.text &&
+            last.text != null &&
+            last.text!.endsWith(' ') &&
+            ws != 'pre' &&
+            ws != 'pre-wrap' &&
+            ws != 'break-spaces') {
+          final trimmed = Fragment.text(
+            text: last.text!.trimRight(),
+            sourceNode: last.sourceNode,
+            style: last.style,
+            characterOffset: last.characterOffset,
+          )
+            ..globalOffset = last.globalOffset
+            ..offset = last.offset
+            ..ellipsisVisibleLength = last.ellipsisVisibleLength;
+          _measureFragment(trimmed);
+          currentLineFragments[currentLineFragments.length - 1] = trimmed;
+        }
+      }
+
       if (currentLineFragments.isEmpty) {
         // Line became empty after trimming whitespace - just flush floats.
         _leftFloats.addAll(_pendingLineLeftFloats);
@@ -1284,6 +1310,32 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         finishLine();
         currentX = leftInset;
         return;
+      }
+
+      // Collapsible spaces at the start of a line are removed (CSS Text 3
+      // §4.1.2), e.g. the indentation newline after `<p>` or after `<br>`.
+      // Without this every such line started one space in.
+      if (currentLineFragments.isEmpty &&
+          fragment.type == FragmentType.text &&
+          fragment.text != null) {
+        final ws = fragment.style.whiteSpace;
+        if (ws != 'pre' && ws != 'pre-wrap' && ws != 'break-spaces') {
+          final text = fragment.text!;
+          var lead = 0;
+          while (lead < text.length && text.codeUnitAt(lead) == 0x20) {
+            lead++;
+          }
+          if (lead == text.length) return;
+          if (lead > 0) {
+            fragment = Fragment.text(
+              text: text.substring(lead),
+              sourceNode: fragment.sourceNode,
+              style: fragment.style,
+              characterOffset: fragment.characterOffset + lead,
+            )..globalOffset = fragment.globalOffset + lead;
+            _measureFragment(fragment);
+          }
+        }
       }
 
       final availableWidth = getAvailableWidth();

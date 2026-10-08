@@ -189,4 +189,30 @@ void main() {
     box.selection = const HyperTextSelection(start: 0, end: 30);
     expect(box.getSelectedText(), 'The quick brown fox jumps over');
   });
+
+  testWidgets('spaces at the start of a line are removed', (tester) async {
+    final box = await _pump(
+      tester,
+      '<p>\n   first line<br>   second line<br> <b>third</b></p>',
+    );
+    final lines = _textLines(box);
+    for (final f in lines.where((f) => f['offsetX'] == 0.0)) {
+      expect((f['text'] as String).startsWith(' '), isFalse,
+          reason: 'line ${f['lineIndex']} starts with a space');
+    }
+    expect(lines.map((f) => f['text']),
+        containsAll(['first line', 'second line', 'third']));
+  });
+
+  testWidgets('right-aligned lines end flush, ignoring the trailing space',
+      (tester) async {
+    final box = await _pump(
+      tester,
+      '<p style="text-align:right">short line \n</p>',
+    );
+    final f = _textLines(box).single;
+    final x = f['offsetX'] as double;
+    expect(x + _visibleWidth(f['text'] as String), closeTo(_boxWidth, 0.5));
+    expect(f['text'], 'short line');
+  });
 }

@@ -6,7 +6,7 @@
 
 No breaking changes. New: `RenderHyperBox.getBoxesForCharRange` and `debugLineFragments` ([#26](https://github.com/brewkits/hyper_render/pull/26)). Two small `text-overflow: ellipsis` changes: selecting truncated text no longer highlights the `…` glyph, and a line where not even one character fits before the ellipsis now shows `…` instead of staying empty.
 
-**Line breaking changed in a few cases**, so wrapped text can land on different lines than in 1.12.0: lines no longer overflow the box by part of a glyph (most visible in CJK), RTL paragraphs wrap properly, `word-break` / `overflow-wrap` on a block now apply to its text, an over-long word breaks after as many characters as fit, a word that doesn't fit beside a float moves below it, and centered / right-aligned lines no longer count the trailing space. If you have pixel tests of wrapped text, expect to regenerate them.
+**Line breaking changed in a few cases**, so wrapped text can land on different lines than in 1.12.0: lines no longer overflow the box by part of a glyph (most visible in CJK), RTL paragraphs wrap properly, `word-break` / `overflow-wrap` on a block now apply to its text, an over-long word breaks after as many characters as fit, a word that doesn't fit beside a float moves below it, lines no longer start one space in after `<br>` or an indented tag, and centered / right-aligned lines no longer count trailing spaces. If you have pixel tests of wrapped text, expect to regenerate them.
 
 ```yaml
 dependencies:
