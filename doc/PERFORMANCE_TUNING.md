@@ -1,7 +1,7 @@
 # Performance Tuning Guide
 
-Last Updated: June 2026
-Version: 1.4.0
+Last Updated: October 2026
+Version: 1.13.0
 
 This guide helps you optimize HyperRender performance for different use cases.
 
@@ -40,7 +40,7 @@ DON'T:
 
 HyperRender offers 3 render modes optimized for different scenarios:
 
-### 1. HyperRenderMode.sync (Default for small content)
+### 1. HyperRenderMode.sync (best for small content)
 
 How it works:
 - Parses HTML on main thread (synchronous)
@@ -170,7 +170,7 @@ void main() {
 ```dart
 HyperViewer(
   html: content,
-  widgetBuilder: (context, node) {
+  widgetBuilder: (node) {
     if (node is AtomicNode && node.tagName == 'img') {
       final src = node.src;
       if (src == null) return null;
@@ -421,8 +421,8 @@ HyperViewer(
 )
 
 // Lazy-load images
-widgetBuilder: (context, node) {
-  if (node is AtomicNode && node.isImage) {
+widgetBuilder: (node) {
+  if (node is AtomicNode && node.tagName == 'img') {
     return CachedNetworkImage(
       imageUrl: node.src!,
       placeholder: (context, url) => Shimmer(...),
@@ -513,8 +513,8 @@ HyperViewer(
 ```dart
 HyperViewer(
   html: content,
-  widgetBuilder: (context, node) {
-    if (node is AtomicNode && node.isImage) {
+  widgetBuilder: (node) {
+    if (node is AtomicNode && node.tagName == 'img') {
       return CachedNetworkImage(
         imageUrl: node.src!,
         memCacheWidth: 800,

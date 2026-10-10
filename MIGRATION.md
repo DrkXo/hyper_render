@@ -114,7 +114,7 @@ HtmlWidget(
 // HyperRender
 HyperViewer(
   html: html,
-  widgetBuilder: (context, node) {
+  widgetBuilder: (node) {
     if (node is AtomicNode && node.tagName == 'iframe') return MyWidget();
     return null;  // fall through to default rendering
   },

@@ -48,6 +48,10 @@ const _executionVerified = <String>[
 const _mustNotBeFull = <String>[
   'position: absolute',
   'position: fixed',
+  // Parsed into ComputedStyle and read by nothing in the render path; checked
+  // by laying out `width:200px;padding:20px` with and without border-box.
+  'position: relative',
+  'box-sizing',
   'z-index',
   // Parsed into ComputedStyle and read by nothing in the render path —
   // measured, not assumed, by test/flagship_execution_audit_test.dart.

@@ -71,3 +71,12 @@ coverage/
 # macOS artifacts
 **/.DS_Store
 **/Pods/
+
+# Sub-packages are published on their own; the root package depends on
+# hyper_render_core through pub.dev, so shipping their sources only doubles
+# the archive size.
+packages/
+
+# Screen-recording entry point for the README GIFs (reads a local /tmp file);
+# nothing imports it.
+example/lib/demo_auto_player.dart

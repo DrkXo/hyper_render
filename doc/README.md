@@ -1,6 +1,6 @@
 # HyperRender Documentation
 
-Welcome to the documentation for **HyperRender v1.13.0** — the high-performance HTML/Markdown renderer for Flutter.
+Welcome to the documentation for **HyperRender v1.13.1** — the high-performance HTML/Markdown renderer for Flutter.
 
 ## Documentation Index
 
