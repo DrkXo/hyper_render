@@ -126,7 +126,8 @@ This document lists CSS property support in HyperRender.
 | `text-indent` | ✅ | px, em, rem, pt, % | First line of a block (LTR); inherits. `%` resolves against the containing block width |
 | `text-overflow` | ✅ | clip, ellipsis | |
 | `white-space` | ✅ | normal, nowrap, pre, pre-wrap | |
-| `word-break` | ✅ | normal, break-all, keep-all | |
+| `word-break` | ✅ | normal, break-all | `break-all` fills each line by character. Inherited (1.13.0; before, a value set on a block never reached its text). `keep-all` is parsed but behaves as `normal` |
+| `overflow-wrap` | ✅ | normal, break-word, anywhere | A word wider than the whole line breaks at character level instead of overflowing. Inherited (1.13.0) |
 | `vertical-align` | ⚠️ | baseline, sub, super | Limited support |
 | `text-shadow` | ✅ | x y blur color | Multiple shadows supported in v1.2.0 |
 
@@ -250,4 +251,4 @@ This document lists CSS property support in HyperRender.
 
 ---
 
-*Last updated: September 6, 2026 — HyperRender v1.8.0*
+*Last updated: October 10, 2026 — HyperRender v1.13.0*

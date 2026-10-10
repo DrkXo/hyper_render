@@ -3488,8 +3488,8 @@ class StyleResolver {
     // White space - inherit if not explicitly set
     style.whiteSpace ??= parentStyle.whiteSpace;
 
-    // word-break / overflow-wrap inherit in CSS. Without this a value set on
-    // a <p> never reached its text nodes, which is where line breaking reads it.
+    // word-break / overflow-wrap inherit in CSS. Line breaking reads them from
+    // the text node's own style, so they must be copied down from the block.
     style.wordBreak ??= parentStyle.wordBreak;
     style.overflowWrap ??= parentStyle.overflowWrap;
 

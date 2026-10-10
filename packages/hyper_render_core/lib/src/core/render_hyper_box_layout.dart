@@ -1329,7 +1329,6 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
 
       // Collapsible spaces at the start of a line are removed (CSS Text 3
       // §4.1.2), e.g. the indentation newline after `<p>` or after `<br>`.
-      // Without this every such line started one space in.
       if (currentLineFragments.isEmpty &&
           fragment.type == FragmentType.text &&
           fragment.text != null) {
@@ -1775,29 +1774,33 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     return (space < 0 ? text.length : space) <= fit;
   }
 
-  /// Checks if the leading run of [text] starting at [start] contains CJK characters.
-  bool _isLeadingCjk(String text, [int start = 0]) {
-    final limit = math.min(text.length, start + 32);
-    for (int i = start; i < limit; i++) {
-      if (KinsokuProcessor.isCjkCodeUnit(text.codeUnitAt(i))) return true;
-    }
-    return false;
-  }
-
-  /// Calculates the maximum number of characters that could possibly fit
-  /// within [maxWidth] given [style]. Bounded prefixes prevent O(N^2)
-  /// text shaping overhead on massive paragraphs (e.g. Gutenberg EPUBs).
-  int _safeCandidateCharLimit(double maxWidth, ComputedStyle style,
-      {bool isCjk = false}) {
+  /// The number of characters of [text], from [start], that could possibly fit
+  /// on one line of [maxWidth] (plus a safety margin). Candidate prefixes are
+  /// bounded by this so a long paragraph is not re-shaped from scratch for
+  /// every line (O(N^2)).
+  ///
+  /// Walks the text adding the narrowest width each character can have: a full
+  /// width CJK character is 1em, anything else is assumed to be at least
+  /// 0.25em, both scaled by the active text scaler. Measuring the actual text
+  /// matters for mixed content: a Latin run after a single CJK character must
+  /// not inherit the CJK bound, or a line is cut short.
+  int _safeCandidateCharLimit(
+      String text, int start, double maxWidth, ComputedStyle style) {
+    const margin = 64;
     final effectiveWidth = maxWidth > 0 ? maxWidth : 1.0;
-    final fontSize = style.fontSize > 0 ? style.fontSize : 16.0;
-    if (isCjk) {
-      // In CJK, fullwidth characters are 1.0 * fontSize wide. Bounding to
-      // (effectiveWidth / (fontSize * 0.75)).ceil() + 16 provides ample margin
-      // (~80-85 chars at 800px) while avoiding over-shaping 116+ chars per line.
-      return (effectiveWidth / (fontSize * 0.75)).ceil() + 16;
+    final fontSize =
+        _textScaler.scale(style.fontSize > 0 ? style.fontSize : 16.0);
+    final cjkMin = fontSize;
+    final otherMin = fontSize * 0.25;
+    var width = 0.0;
+    var i = start;
+    while (i < text.length && width < effectiveWidth) {
+      width += KinsokuProcessor.isCjkCodeUnit(text.codeUnitAt(i))
+          ? cjkMin
+          : otherMin;
+      i++;
     }
-    return (effectiveWidth / (fontSize * 0.25)).ceil() + 64;
+    return (i - start) + margin;
   }
 
   /// Reusable TextPainter for layout candidate prefixes, avoiding allocating
@@ -1839,9 +1842,8 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     final text = fragment.text!;
     if (text.isEmpty) return null;
 
-    final isCjk = _isLeadingCjk(text);
     final safeLimit =
-        _safeCandidateCharLimit(maxWidth, fragment.style, isCjk: isCjk);
+        _safeCandidateCharLimit(text, 0, maxWidth, fragment.style);
     final isCandidate = text.length > safeLimit;
     final candidateText = isCandidate ? text.substring(0, safeLimit) : text;
 
@@ -1979,7 +1981,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     // Container width _maxWidth is used rather than line maxWidth to avoid
     // erroneously assuming the tail fits on the next full-width line.
     final safeContainerLimit =
-        _safeCandidateCharLimit(_maxWidth, fragment.style, isCjk: isCjk);
+        _safeCandidateCharLimit(text, breakIndex, _maxWidth, fragment.style);
     if (secondPart.length > safeContainerLimit) {
       secondFragment.measuredSize = Size(double.infinity, firstFragment.height);
       secondFragment.baseline = firstFragment.baseline;
@@ -2012,8 +2014,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     final bool overflowWrap =
         style.overflowWrap == 'break-word' || style.overflowWrap == 'anywhere';
 
-    final isCjk = _isLeadingCjk(text);
-    final safeLimit = _safeCandidateCharLimit(maxWidth, style, isCjk: isCjk);
+    final safeLimit = _safeCandidateCharLimit(text, 0, maxWidth, style);
     final isCandidate = text.length > safeLimit;
     final candidateText = isCandidate ? text.substring(0, safeLimit) : text;
 
@@ -2052,8 +2053,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     }
 
     // Fallback: a single word wider than the whole line. Break it after as
-    // many characters as fit (as Flutter's Text does) rather than after the
-    // first character, which used to leave a column of one-letter lines.
+    // many characters as fit, as Flutter's Text does.
     if (breakIndex <= 0) breakIndex = math.max(1, fitIndex);
     if (breakIndex >= text.length) return null;
 
@@ -2120,7 +2120,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     )..globalOffset = fragment.globalOffset + breakIndex;
 
     final safeContainerLimit =
-        _safeCandidateCharLimit(_maxWidth, fragment.style, isCjk: isCjk);
+        _safeCandidateCharLimit(text, breakIndex, _maxWidth, fragment.style);
     if (secondPart.length > safeContainerLimit) {
       secondFragment.measuredSize = Size(double.infinity, firstFragment.height);
       secondFragment.baseline = firstFragment.baseline;

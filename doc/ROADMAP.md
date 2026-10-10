@@ -1,7 +1,7 @@
 # HyperRender — Product Roadmap
 
 **Last Updated**: 2026-10-08
-**Current Stable**: v1.13.0
+**Current Stable**: v1.12.0 (v1.13.0 is the release candidate)
 **Repository**: [github.com/brewkits/hyper_render](https://github.com/brewkits/hyper_render)
 
 This document tracks the long-term direction of the HyperRender ecosystem.
@@ -116,7 +116,7 @@ Properties deferred from Phase 3 in [`CSS_PROPERTIES_MATRIX.md`](CSS_PROPERTIES_
 - [x] `text-shadow` — parsed + applied to `TextStyle.shadows` in `ComputedStyle`
 - [x] `text-overflow: ellipsis` — parsed + executed in `render_hyper_box_fragments.dart`
 - [x] `box-shadow` — parsed + applied in `render_hyper_box_paint.dart`
-- [x] `word-break`, `overflow-wrap` — parsed + executed in `render_hyper_box_layout.dart` (L1339–1375)
+- [x] `word-break: break-all`, `overflow-wrap: break-word | anywhere` — parsed, inherited and executed by the line breaker (`word-break: keep-all` is parsed only)
 - [x] `list-style-type`, `list-style-position` — fully parsed, resolved, and painted (v1.3.1)
 - [x] `background-repeat` — parsed + mapped to `ImageRepeat` in `paintImage()`
 - [x] `background-position` — parsed + mapped to `Alignment` in `paintImage()` (keyword values: top/center/bottom/left/right and combinations)
