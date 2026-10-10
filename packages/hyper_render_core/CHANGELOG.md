@@ -18,6 +18,7 @@
   - Single-pass native multi-line layout fast path via ICU `computeLineMetrics()` when lines are uniform and free of floats, eliminating UI freezes on long unspaced text.
   - Bounded candidate prefix search in the fallback line breaker loop to prevent quadratic `O(N^2)` HarfBuzz text shaping overhead.
   - Robust loop termination on zero or negative line widths and trailing whitespace margin parity.
+  - **Behavior change from the native layout:** CJK text now fills the line after a space between two sentences or runs (as a browser does), where it used to start the next run on a new line, and a first-in-document block with `text-overflow: ellipsis` now truncates instead of wrapping (it emitted no block-start fragment, so the ellipsis state was never entered).
 - **`HyperRenderDebugHooks.onTextPainterLayout` / `onLineLayoutTextPainter`** — hook callbacks for counting text shaping and line layout operations in tests and DevTools. By [@DrkXo](https://github.com/DrkXo) ([#29](https://github.com/brewkits/hyper_render/pull/29)).
 
 ## 1.12.0

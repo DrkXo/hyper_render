@@ -218,4 +218,36 @@ void main() {
     expect(x + _visibleWidth(f['text'] as String), closeTo(_boxWidth, 0.5));
     expect(f['text'], 'short line');
   });
+
+  testWidgets('text-overflow: ellipsis works on the first block of a document',
+      (tester) async {
+    // No preceding block, margin or padding: this block used to emit no
+    // block-start fragment, so ellipsisDepth never rose and the text wrapped.
+    final box = await _pump(
+      tester,
+      '<div style="overflow:hidden;text-overflow:ellipsis;'
+      'white-space:nowrap">${_words(20)}</div>',
+    );
+    final lines = _textLines(box);
+    expect(lines, hasLength(1));
+    expect(lines.single['text'] as String, endsWith('\u2026'));
+    expect(
+      (lines.single['offsetX'] as double) +
+          _visibleWidth(lines.single['text'] as String),
+      lessThanOrEqualTo(_boxWidth + 0.5),
+    );
+  });
+
+  testWidgets('a floated block does not add a phantom line height',
+      (tester) async {
+    const text = 'One two three four five six seven eight nine ten';
+    final box = await _pump(
+      tester,
+      '<div style="float:left;width:150px">$text</div><p>$text</p>',
+    );
+    // Known gap: the floated div's text is laid out in normal flow. Its first
+    // line must be one text line tall (16px at Ahem), not 24.
+    final lines = _textLines(box);
+    expect(lines[1]['lineTop'], 16.0);
+  });
 }

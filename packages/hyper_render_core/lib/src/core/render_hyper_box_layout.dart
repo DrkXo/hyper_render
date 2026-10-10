@@ -1621,7 +1621,11 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         }
       }
 
-      if (fragment.measuredSize == null || fragment.width.isInfinite) {
+      // An oversized tail carries an estimated infinite width; measure it for
+      // real once it is placed. Do NOT also measure `measuredSize == null`
+      // fragments: a floated block's own text arrives unmeasured (known gap),
+      // and measuring it adds a phantom line height.
+      if (fragment.width.isInfinite) {
         _measureFragment(fragment);
       }
 
