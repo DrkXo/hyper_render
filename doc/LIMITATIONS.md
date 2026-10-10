@@ -238,4 +238,4 @@ the full suite plus goldens as the safety net.
 
 ---
 
-*Last updated: September 6, 2026 — HyperRender v1.8.0*
+*Last updated: October 10, 2026 — HyperRender v1.13.0*

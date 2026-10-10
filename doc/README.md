@@ -1,6 +1,6 @@
 # HyperRender Documentation
 
-Welcome to the documentation for **HyperRender v1.3.3** — the high-performance HTML/Markdown renderer for Flutter.
+Welcome to the documentation for **HyperRender v1.13.0** — the high-performance HTML/Markdown renderer for Flutter.
 
 ## Documentation Index
 
@@ -29,6 +29,7 @@ Welcome to the documentation for **HyperRender v1.3.3** — the high-performance
 | **[CSS Properties Matrix](CSS_PROPERTIES_MATRIX.md)** | Full CSS property support status |
 | **[Roadmap](ROADMAP.md)** | Planned features and versioning strategy |
 | **[Contributing Guide](CONTRIBUTING.md)** | How to contribute code, docs, and issues |
+| **[Testing](TESTING.md)** | Test map by kind (unit, integration, system, performance, stress, security), commands and conventions |
 | **[Code of Conduct](CODE_OF_CONDUCT.md)** | Community standards |
 
 ### Architecture Decision Records
