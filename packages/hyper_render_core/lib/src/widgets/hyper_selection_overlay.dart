@@ -175,6 +175,10 @@ class HyperSelectionOverlay extends StatefulWidget {
   /// Forwarded to the inner [HyperRenderWidget].
   final HyperImageLoader? imageLoader;
 
+  /// Callback invoked when text selection changes or is cleared.
+  /// Receives the active [HyperTextSelection], or `null` when cleared/collapsed.
+  final ValueChanged<HyperTextSelection?>? onSelectionChanged;
+
   const HyperSelectionOverlay({
     super.key,
     required this.document,
@@ -197,6 +201,7 @@ class HyperSelectionOverlay extends StatefulWidget {
     this.pluginRegistry,
     this.enableComplexFilters = true,
     this.imageLoader,
+    this.onSelectionChanged,
   });
 
   @override
@@ -285,6 +290,16 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
     hold?.cancel();
   }
 
+  HyperTextSelection? _lastNotifiedSelection;
+
+  void _notifySelectionChangedIfChanged() {
+    final current = selection;
+    if (_lastNotifiedSelection != current) {
+      _lastNotifiedSelection = current;
+      widget.onSelectionChanged?.call(current);
+    }
+  }
+
   /// Called when selection changes in RenderHyperBox
   void _onSelectionChanged() {
     _updateHandlePositions();
@@ -294,6 +309,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
     } else {
       _hideMenu();
     }
+    _notifySelectionChangedIfChanged();
   }
 
   void _showMenu() {
@@ -339,6 +355,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
       _draggingEnd = false;
     });
     _hideMenu();
+    _notifySelectionChangedIfChanged();
   }
 
   /// Select all text
@@ -346,6 +363,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
     _renderBox?.selectAll();
     _updateHandlePositions();
     _focusNode.requestFocus();
+    _notifySelectionChangedIfChanged();
   }
 
   void _showCopiedSnackBar() {
@@ -479,54 +497,51 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
           if (hasSelection) clearSelection();
         },
         behavior: HitTestBehavior.translucent,
-        child: TapRegion(
-          onTapOutside: (_) => _handleTapOutside(),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Main content — wrapped with LongPressGestureDetector so that
-              // text selection competes in the gesture arena against the parent
-              // ScrollView's VerticalDragGestureRecognizer.
-              GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onLongPressStart: _onLongPressStart,
-                onLongPressMoveUpdate: _onLongPressMoveUpdate,
-                onLongPressEnd: _onLongPressEnd,
-                child: KeyedSubtree(
-                  key: _renderKey,
-                  child: HyperRenderWidget(
-                    document: widget.document,
-                    baseStyle: widget.baseStyle,
-                    onLinkTap: widget.onLinkTap,
-                    widgetBuilder: widget.widgetBuilder,
-                    selectable: widget.selectable,
-                    selectionColor: widget.selectionColor,
-                    textDirection:
-                        widget.textDirection ?? Directionality.of(context),
-                    onSelectionChanged: _onSelectionChanged,
-                    debugShowBounds: widget.debugShowBounds,
-                    onAnchorLayout: widget.onAnchorLayout,
-                    config: widget.config,
-                    pluginRegistry: widget.pluginRegistry,
-                    enableComplexFilters: widget.enableComplexFilters,
-                    imageLoader: widget.imageLoader,
-                  ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Main content — wrapped with LongPressGestureDetector so that
+            // text selection competes in the gesture arena against the parent
+            // ScrollView's VerticalDragGestureRecognizer.
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onLongPressStart: _onLongPressStart,
+              onLongPressMoveUpdate: _onLongPressMoveUpdate,
+              onLongPressEnd: _onLongPressEnd,
+              child: KeyedSubtree(
+                key: _renderKey,
+                child: HyperRenderWidget(
+                  document: widget.document,
+                  baseStyle: widget.baseStyle,
+                  onLinkTap: widget.onLinkTap,
+                  widgetBuilder: widget.widgetBuilder,
+                  selectable: widget.selectable,
+                  selectionColor: widget.selectionColor,
+                  textDirection:
+                      widget.textDirection ?? Directionality.of(context),
+                  onSelectionChanged: _onSelectionChanged,
+                  debugShowBounds: widget.debugShowBounds,
+                  onAnchorLayout: widget.onAnchorLayout,
+                  config: widget.config,
+                  pluginRegistry: widget.pluginRegistry,
+                  enableComplexFilters: widget.enableComplexFilters,
+                  imageLoader: widget.imageLoader,
                 ),
               ),
+            ),
 
-              // Selection handles
-              if (hasSelection && widget.selectable && widget.showHandles) ...[
-                if (_startHandleRect != null)
-                  _buildHandle(_HandlePosition.start, _startHandleRect!),
-                if (_endHandleRect != null)
-                  _buildHandle(_HandlePosition.end, _endHandleRect!),
-              ],
-
-              // Context menu (positioned above selection)
-              if (_showContextMenu && hasSelection)
-                _buildAnimatedContextMenu(context),
+            // Selection handles
+            if (hasSelection && widget.selectable && widget.showHandles) ...[
+              if (_startHandleRect != null)
+                _buildHandle(_HandlePosition.start, _startHandleRect!),
+              if (_endHandleRect != null)
+                _buildHandle(_HandlePosition.end, _endHandleRect!),
             ],
-          ),
+
+            // Context menu (positioned above selection)
+            if (_showContextMenu && hasSelection)
+              _buildAnimatedContextMenu(context),
+          ],
         ),
       ),
     );
@@ -554,9 +569,13 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
           );
         },
         child: Center(
-          child: widget.contextMenuBuilder != null
-              ? widget.contextMenuBuilder!(context, this)
-              : _buildDefaultContextMenu(context),
+          child: TapRegion(
+            groupId: this,
+            onTapOutside: (_) => _handleTapOutside(),
+            child: widget.contextMenuBuilder != null
+                ? widget.contextMenuBuilder!(context, this)
+                : _buildDefaultContextMenu(context),
+          ),
         ),
       ),
     );
@@ -692,6 +711,11 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
           : defaultHandle,
     );
 
+    final handleWidget = TapRegion(
+      groupId: this,
+      child: gestureChild,
+    );
+
     if (widget.selectionAnchorBuilder != null) {
       return Positioned(
         left: anchorPoint.dx,
@@ -699,7 +723,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
         child: FractionalTranslation(
           translation:
               isStart ? const Offset(-0.5, -1.0) : const Offset(-0.5, 0.0),
-          child: gestureChild,
+          child: handleWidget,
         ),
       );
     }
@@ -707,7 +731,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
     return Positioned(
       left: defaultLeft,
       top: defaultTop,
-      child: gestureChild,
+      child: handleWidget,
     );
   }
 
@@ -865,6 +889,7 @@ extension HyperRenderWidgetSelectionExtension on HyperRenderWidget {
     Widget Function(BuildContext, HyperSelectionOverlayState)?
         contextMenuBuilder,
     HyperSelectionAnchorBuilder? selectionAnchorBuilder,
+    ValueChanged<HyperTextSelection?>? onSelectionChanged,
   }) {
     return HyperSelectionOverlay(
       document: document,
@@ -875,6 +900,7 @@ extension HyperRenderWidgetSelectionExtension on HyperRenderWidget {
       handleColor: handleColor,
       contextMenuBuilder: contextMenuBuilder,
       selectionAnchorBuilder: selectionAnchorBuilder,
+      onSelectionChanged: onSelectionChanged,
     );
   }
 }

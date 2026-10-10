@@ -233,6 +233,129 @@ void main() {
         // Selection should be cleared
         expect(key.currentState!.hasSelection, isFalse);
       });
+
+      testWidgets('tap on content area outside context menu clears selection',
+          (WidgetTester tester) async {
+        final doc = DocumentNode(children: [
+          BlockNode.p(children: [
+            TextNode(
+              'First line of content that is long enough to select.\n'
+              'Second line of content that is also long enough.\n'
+              'Third line of content below the context menu.',
+            ),
+          ]),
+        ]);
+
+        final key = GlobalKey<HyperSelectionOverlayState>();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 600,
+                height: 800,
+                child: HyperSelectionOverlay(
+                  key: key,
+                  document: doc,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Select all to display handles and context menu
+        key.currentState!.selectAll();
+        await tester.pumpAndSettle();
+        expect(key.currentState!.hasSelection, isTrue);
+
+        // Tap on content area near the bottom, well outside the context menu
+        await tester.tapAt(const Offset(300, 400));
+        await tester.pumpAndSettle();
+
+        // Selection should be cleared
+        expect(key.currentState!.hasSelection, isFalse);
+      });
+    });
+
+    group('onSelectionChanged callback', () {
+      testWidgets(
+          'fires with selection on selectAll and with null on clearSelection',
+          (WidgetTester tester) async {
+        final doc = DocumentNode(children: [
+          BlockNode.p(children: [TextNode('Hello World')]),
+        ]);
+
+        final key = GlobalKey<HyperSelectionOverlayState>();
+        final selections = <HyperTextSelection?>[];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HyperSelectionOverlay(
+                key: key,
+                document: doc,
+                onSelectionChanged: (sel) => selections.add(sel),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+        expect(selections, isEmpty);
+
+        key.currentState!.selectAll();
+        await tester.pumpAndSettle();
+
+        expect(selections, isNotEmpty);
+        expect(selections.last, isNotNull);
+        expect(selections.last!.isCollapsed, isFalse);
+
+        key.currentState!.clearSelection();
+        await tester.pumpAndSettle();
+
+        expect(selections.last, isNull);
+      });
+
+      testWidgets('fires with null when selection cleared via tap outside',
+          (WidgetTester tester) async {
+        final doc = DocumentNode(children: [
+          BlockNode.p(
+              children: [TextNode('Testing selection callbacks on tap')]),
+        ]);
+
+        final key = GlobalKey<HyperSelectionOverlayState>();
+        final selections = <HyperTextSelection?>[];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 600,
+                height: 800,
+                child: HyperSelectionOverlay(
+                  key: key,
+                  document: doc,
+                  onSelectionChanged: (sel) => selections.add(sel),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        key.currentState!.selectAll();
+        await tester.pumpAndSettle();
+        expect(selections.last, isNotNull);
+
+        // Tap away on content area
+        await tester.tapAt(const Offset(300, 500));
+        await tester.pumpAndSettle();
+
+        expect(selections.last, isNull);
+      });
     });
 
     group('Keyboard shortcuts', () {
