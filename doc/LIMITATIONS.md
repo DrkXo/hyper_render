@@ -46,7 +46,7 @@ are silently ignored.
 | Property | Limitation |
 |----------|------------|
 | `opacity` | Applied per-element; stacking context opacity not propagated |
-| `position: relative` | Supported but child `absolute` positioning is not |
+| `position: relative` / `box-sizing: border-box` | Parsed but not applied: no offset for `relative`, and `width` always sizes the content box |
 | `calc()` | Arithmetic on px/em/rem only; `%` in calc not resolved |
 | `text-align` | Center/right/justify on canvas paragraphs, LTR and box-level RTL (`textDirection: rtl`). An explicit `text-align` overrides RTL's default right edge; `justify` in RTL is not yet distributed (keeps the start edge) |
 | `float` scope | A float reserves a box from the element's own `width`/`height`; it does **not** lay the floated element's content out inside that box. So float works for replaced elements (`<img style="float:left">`) and for empty, explicitly sized boxes (`<div style="float:left;width:150px;height:120px">`) — text wraps beside both. It does **not** work for an element sized by its own text: a floated `<div>` with content renders that content in normal flow while still reserving a phantom float box, which can make the block *taller* than not floating it; a floated inline `<span>` (the drop-cap idiom) has no effect at all. Pinned by `test/flagship_execution_audit_test.dart` |

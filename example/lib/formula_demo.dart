@@ -519,10 +519,9 @@ FormulaWidget(
               color: DemoColors.warning),
           _CodeSnippet(
               code: r'''// Apply flutter_math_fork to ALL formulas in a document
-HyperViewer(
-  html: myDeltaJson,
-  format: HyperRenderFormat.delta,
-  widgetBuilder: (context, node) {
+HyperViewer.delta(
+  delta: myDeltaJson,
+  widgetBuilder: (node) {
     if (node is AtomicNode && node.tagName == 'formula') {
       final formula = node.attributes['data'] ?? '';
       return Math.tex(formula,

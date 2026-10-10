@@ -270,7 +270,7 @@ When using `widgetBuilder`, validate the input:
 ```dart
 HyperViewer(
   html: content,
-  widgetBuilder: (context, node) {
+  widgetBuilder: (node) {
     // Validate node properties
     if (node.tagName == 'custom-widget') {
       final dataUrl = node.attributes['data-url'];
@@ -295,7 +295,7 @@ HyperViewer(
 ```dart
 HyperViewer(
   html: content,
-  widgetBuilder: (context, node) {
+  widgetBuilder: (node) {
     if (node is AtomicNode && node.isVideo) {
       final videoUrl = node.src;
 
@@ -412,7 +412,7 @@ Defense:
 allowedTags: const {'p', 'strong', 'em'},  // No 'img'
 
 // Option 2: Proxy images through your server
-widgetBuilder: (context, node) {
+widgetBuilder: (node) {
   if (node is AtomicNode && node.tagName == 'img') {
     final src = node.src;
     if (src != null && src.startsWith('https://yourcdn.com/')) {

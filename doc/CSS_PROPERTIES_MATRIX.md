@@ -45,7 +45,7 @@ This document lists CSS property support in HyperRender.
 | `border-style` | ✅ | solid, dashed, dotted, double, none | Custom styles beyond Flutter defaults |
 | `border-color` | ✅ | All color formats | |
 | `border-radius` | ✅ | px, % | All 4 corners + shorthand |
-| `box-sizing` | ✅ | border-box, content-box | Full support |
+| `box-sizing` | ❌ | — | Parsed, not applied: `width` always sizes the content box, so `border-box` is ignored (measured: `width:200px;padding:20px` wraps at 200px with or without it) |
 | `aspect-ratio` | ✅ | W/H, bare number, auto | Applied to img/video sizing (v1.4.0) |
 
 ---
@@ -59,7 +59,7 @@ This document lists CSS property support in HyperRender.
 | `opacity` | ✅ | 0-1 | |
 | `overflow` | ⚠️ | hidden, visible | No scroll support |
 | `position: static` | ✅ | static | Default |
-| `position: relative` | ✅ | relative | Supported |
+| `position: relative` | ❌ | — | Parsed, not applied: `top` / `left` offsets do not move the element |
 | `position: absolute` | ❌ | — | Use `pluginRegistry` for overlay widgets |
 | `position: fixed` | ❌ | — | Use `pluginRegistry` for overlay widgets |
 | `top` / `right` / `bottom` / `left` | ❌ | — | Requires absolute/fixed; not supported |

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.1
+
+Packaging and documentation only; no code changes in the library.
+
+- **Smaller download:** the archive no longer ships `packages/` (the sub-packages are published on their own and `hyper_render_core` is a normal pub.dev dependency) or the GIF-recording entry point `example/lib/demo_auto_player.dart`. About 32 MB → 18 MB.
+- **Docs corrected:** every `widgetBuilder: (context, node) { ... }` example (README, MIGRATION, security and performance guides) did not compile. The callback is `Widget? Function(UDTNode node)`. `node.isImage` does not exist; examples use `node.tagName == 'img'`.
+- **Docs no longer over-claim:** `box-sizing` and `position: relative` were listed as supported. They are parsed but not applied (`width` always sizes the content box; `top`/`left` do not move the element). The CSS matrix, `SUPPORTED_HTML.md` and `LIMITATIONS.md` now say so, and the docs-sync test guards both rows.
+
 ## 1.13.0
 
 - **Character-range highlight boxes:** `RenderHyperBox.getBoxesForCharRange(charStart, charEnd)` returns the rects of a character range, for drawing your own highlights (search hits, annotations, read-aloud). Offsets are local to each `RenderHyperBox`, so in virtualized / `auto` mode (>10k chars) they restart at 0 per chunk. Also new: `RenderHyperBox.debugLineFragments()` for the laid-out fragment geometry. By [@DrkXo](https://github.com/DrkXo) ([#26](https://github.com/brewkits/hyper_render/pull/26)).
