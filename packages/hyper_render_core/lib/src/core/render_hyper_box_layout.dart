@@ -224,7 +224,8 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     if (effectiveMarginTop > 0 ||
         _fragments.isNotEmpty ||
         hasWidthConstraint ||
-        hasPadding) {
+        hasPadding ||
+        style.textOverflow == TextOverflow.ellipsis) {
       _fragments.add(_BlockStartFragment(
         sourceNode: node,
         style: style,
@@ -607,10 +608,13 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
           final text = fragment.text;
           if (text == null || text.isEmpty) {
             fragment.measuredSize = Size.zero;
+            fragment.baseline = 0;
             break;
           }
           final painter = _getTextPainter(text, fragment.style);
           fragment.measuredSize = Size(painter.width, painter.height);
+          fragment.baseline =
+              painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
           break;
 
         case FragmentType.ruby:
@@ -620,10 +624,13 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         case FragmentType.lineBreak:
           final painter = _getTextPainter(' ', fragment.style);
           fragment.measuredSize = Size(0, painter.height);
+          fragment.baseline =
+              painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
           break;
 
         case FragmentType.atomic:
           // Already measured during tokenization
+          fragment.baseline = fragment.measuredSize?.height;
           break;
       }
 
@@ -659,6 +666,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     fragment.measuredSize = Size(width, height);
     // Store ruby height for painting
     fragment.rubyHeight = rubyPainter.height;
+    fragment.baseline = height * 0.85;
   }
 
   /// The style a text/ruby fragment should actually be measured, painted and
@@ -671,6 +679,13 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       wordSpacing:
           (fragment.style.wordSpacing ?? 0) + fragment.justifyWordSpacing,
     );
+  }
+
+  /// Whether [whiteSpace] preserves preformatted whitespace and line breaks.
+  bool _isPreformattedWhiteSpace(String? whiteSpace) {
+    return whiteSpace == 'pre' ||
+        whiteSpace == 'pre-wrap' ||
+        whiteSpace == 'break-spaces';
   }
 
   TextPainter _getTextPainter(String text, ComputedStyle style) {
@@ -700,9 +715,8 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     // FIXED: baseStyle is the foundation, computed style overrides it
     final mergedStyle = _baseStyle.merge(style.toTextStyle());
 
-    // Pre/pre-wrap fragments may contain multi-line text; allow unlimited lines
-    final isPreformatted =
-        style.whiteSpace == 'pre' || style.whiteSpace == 'pre-wrap';
+    // Pre/pre-wrap/break-spaces fragments may contain multi-line text; allow unlimited lines
+    final isPreformatted = _isPreformattedWhiteSpace(style.whiteSpace);
     final maxLines = isPreformatted ? null : 1;
 
     final painter = TextPainter(
@@ -728,6 +742,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         applyHeightToLastDescent: true,
       ),
     )..layout();
+    if (kDebugMode) HyperRenderDebugHooks.onTextPainterLayout?.call();
 
     _textPainters.put(key, painter);
     return painter;
@@ -859,6 +874,32 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       while (currentLineFragments.isNotEmpty &&
           currentLineFragments.last.isWhitespace) {
         currentLineFragments.removeLast();
+      }
+
+      // Collapsible spaces at the end of a line hang (CSS Text 3 §4.1.2):
+      // they must not count toward the width text-align centers or
+      // right-aligns, or the visible glyphs end up one space off.
+      if (currentLineFragments.isNotEmpty) {
+        final last = currentLineFragments.last;
+        final ws = last.style.whiteSpace;
+        if (last.type == FragmentType.text &&
+            last.text != null &&
+            last.text!.endsWith(' ') &&
+            ws != 'pre' &&
+            ws != 'pre-wrap' &&
+            ws != 'break-spaces') {
+          final trimmed = Fragment.text(
+            text: last.text!.trimRight(),
+            sourceNode: last.sourceNode,
+            style: last.style,
+            characterOffset: last.characterOffset,
+          )
+            ..globalOffset = last.globalOffset
+            ..offset = last.offset
+            ..ellipsisVisibleLength = last.ellipsisVisibleLength;
+          _measureFragment(trimmed);
+          currentLineFragments[currentLineFragments.length - 1] = trimmed;
+        }
       }
 
       if (currentLineFragments.isEmpty) {
@@ -1286,6 +1327,32 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         return;
       }
 
+      // Collapsible spaces at the start of a line are removed (CSS Text 3
+      // §4.1.2), e.g. the indentation newline after `<p>` or after `<br>`.
+      // Without this every such line started one space in.
+      if (currentLineFragments.isEmpty &&
+          fragment.type == FragmentType.text &&
+          fragment.text != null) {
+        final ws = fragment.style.whiteSpace;
+        if (ws != 'pre' && ws != 'pre-wrap' && ws != 'break-spaces') {
+          final text = fragment.text!;
+          var lead = 0;
+          while (lead < text.length && text.codeUnitAt(lead) == 0x20) {
+            lead++;
+          }
+          if (lead == text.length) return;
+          if (lead > 0) {
+            fragment = Fragment.text(
+              text: text.substring(lead),
+              sourceNode: fragment.sourceNode,
+              style: fragment.style,
+              characterOffset: fragment.characterOffset + lead,
+            )..globalOffset = fragment.globalOffset + lead;
+            _measureFragment(fragment);
+          }
+        }
+      }
+
       final availableWidth = getAvailableWidth();
       // If floats were placed before any text on this line, currentX may still
       // be 0 (or behind the float boundary). Clamp it so remainingWidth is
@@ -1385,15 +1452,149 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
             }
           }
 
-          // Can't split to fit - start new line
+          // Can't split to fit - start new line, and process the fragment
+          // again there so the line-start rules (leading-space collapse)
+          // apply to it.
           if (currentLineFragments.isNotEmpty) {
             finishLine();
             currentX = leftInset;
+            pendingFragment = fragment;
+            return;
           }
 
           // Now check if fragment is wider than full line width
           final fullLineWidth = getAvailableWidth();
           if (fragment.width > fullLineWidth && fragment.text!.length > 1) {
+            // Fast path: When there are no active or pending floats and the fragment
+            // starts at the beginning of a line, available width is uniform across all
+            // lines. Layout the entire text in a single TextPainter pass via native
+            // ICU line-breaking, avoiding thousands of individual TextPainter.layout() calls.
+            final bool canUseNativeMultiLine = _leftFloats.isEmpty &&
+                _rightFloats.isEmpty &&
+                _pendingLineLeftFloats.isEmpty &&
+                _pendingLineRightFloats.isEmpty &&
+                currentLineFragments.isEmpty &&
+                fullLineWidth > 0 &&
+                ellipsisDepth == 0 &&
+                !fragment.style.isRtl &&
+                textDirection != ui.TextDirection.rtl &&
+                fragment.style.wordBreak != 'break-all' &&
+                fragment.style.textOverflow != TextOverflow.ellipsis &&
+                !_isPreformattedWhiteSpace(fragment.style.whiteSpace) &&
+                fragment.style.whiteSpace != 'nowrap';
+
+            if (canUseNativeMultiLine) {
+              final text = fragment.text!;
+              final totalLen = text.length;
+              final fragmentDirection =
+                  fragment.style.isRtl ? ui.TextDirection.rtl : textDirection;
+              final mergedStyle =
+                  _baseStyle.merge(fragment.style.toTextStyle());
+              final strutStyle = StrutStyle.fromTextStyle(mergedStyle,
+                  forceStrutHeight: false);
+
+              final multiPainter = _scratchCandidatePainter ??= TextPainter();
+              multiPainter
+                ..text = TextSpan(text: text, style: mergedStyle)
+                ..strutStyle = strutStyle
+                ..textDirection = fragmentDirection
+                ..textScaler = _textScaler
+                ..maxLines = null
+                ..textHeightBehavior = const TextHeightBehavior(
+                  applyHeightToFirstAscent: true,
+                  applyHeightToLastDescent: true,
+                )
+                ..layout(maxWidth: fullLineWidth);
+              if (kDebugMode) {
+                HyperRenderDebugHooks.onTextPainterLayout?.call();
+                HyperRenderDebugHooks.onLineLayoutTextPainter?.call();
+              }
+
+              final metrics = multiPainter.computeLineMetrics();
+              if (metrics.length > 1) {
+                int startOffset = 0;
+                for (int mIdx = 0; mIdx < metrics.length; mIdx++) {
+                  final lm = metrics[mIdx];
+                  int endOffset;
+                  if (mIdx == metrics.length - 1) {
+                    endOffset = totalLen;
+                  } else {
+                    final nextLm = metrics[mIdx + 1];
+                    final nextLineY = nextLm.baseline - nextLm.ascent / 2;
+                    final nextStartPos = multiPainter.getPositionForOffset(
+                      Offset(0, nextLineY),
+                    );
+                    endOffset = nextStartPos.offset;
+                    if (endOffset <= startOffset || endOffset > totalLen) {
+                      final lineY = lm.baseline - lm.ascent / 2;
+                      final pos = multiPainter.getPositionForOffset(
+                        Offset(fullLineWidth, lineY),
+                      );
+                      endOffset = pos.offset;
+                    }
+                  }
+
+                  if (endOffset <= startOffset && startOffset < totalLen) {
+                    endOffset = startOffset + 1;
+                  } else if (endOffset > totalLen) {
+                    endOffset = totalLen;
+                  }
+
+                  final lineText = text.substring(startOffset, endOffset);
+                  final lineFrag = Fragment.text(
+                    text: lineText,
+                    sourceNode: fragment.sourceNode,
+                    style: fragment.style,
+                    characterOffset: fragment.characterOffset + startOffset,
+                  )..globalOffset = fragment.globalOffset + startOffset;
+
+                  lineFrag.measuredSize = Size(lm.width, lm.height);
+                  lineFrag.baseline = lm.ascent;
+
+                  lineFrag.offset = Offset(currentX, currentY);
+                  currentLineFragments.add(lineFrag);
+                  _updateLineMetrics(lineFrag, lineHeight, maxBaseline, (h, b) {
+                    lineHeight = h;
+                    maxBaseline = b;
+                  });
+
+                  if (mIdx < metrics.length - 1) {
+                    finishLine();
+                    currentX = leftInset;
+                  } else {
+                    currentX += lineFrag.width;
+                  }
+                  startOffset = endOffset;
+                }
+                return;
+              }
+            }
+
+            // A float narrows this line and not even the first word fits
+            // beside it: move down past the float (as CSS line boxes do)
+            // instead of splitting the word after its first letter.
+            final contentWidth =
+                _maxWidth - leftPaddingStack.last - rightPaddingStack.last;
+            if (fullLineWidth < contentWidth - 0.5 &&
+                !_leadingUnitFits(fragment, fullLineWidth)) {
+              double? floatBottom;
+              for (final float in [..._leftFloats, ..._rightFloats]) {
+                if (currentY >= float.rect.top &&
+                    currentY < float.rect.bottom &&
+                    (floatBottom == null || float.rect.bottom < floatBottom)) {
+                  floatBottom = float.rect.bottom;
+                }
+              }
+              if (floatBottom != null) {
+                currentY = floatBottom;
+                _cachedAvailableWidth = null;
+                getAvailableWidth(); // refreshes leftInset for the new Y
+                currentX = leftInset;
+                pendingFragment = fragment;
+                return;
+              }
+            }
+
             // Fragment is wider than entire line - FORCE split
             final forceSplit = _forceSplitTextFragment(fragment, fullLineWidth);
             if (forceSplit != null) {
@@ -1418,6 +1619,14 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
             currentX = leftInset;
           }
         }
+      }
+
+      // An oversized tail carries an estimated infinite width; measure it for
+      // real once it is placed. Do NOT also measure `measuredSize == null`
+      // fragments: a floated block's own text arrives unmeasured (known gap),
+      // and measuring it adds a phantom line height.
+      if (fragment.width.isInfinite) {
+        _measureFragment(fragment);
       }
 
       fragment.offset = Offset(currentX, currentY);
@@ -1455,11 +1664,17 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
   /// Returns the distance from the top of [fragment] to its baseline.
   /// Single source of truth used by both [_updateLineMetrics] and [_positionFragments].
   double _fragmentBaseline(Fragment fragment) {
+    if (fragment.baseline != null) return fragment.baseline!;
     if (fragment.type == FragmentType.text && fragment.text != null) {
       final painter = _getTextPainter(fragment.text!, fragment.style);
-      return painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      final b =
+          painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+      fragment.baseline = b;
+      return b;
     } else if (fragment.type == FragmentType.ruby) {
-      return fragment.height * 0.85;
+      final b = fragment.height * 0.85;
+      fragment.baseline = b;
+      return b;
     }
     return fragment.height; // atomic: bottom-align
   }
@@ -1501,15 +1716,142 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     return isBeforeCjk || isAfterCjk;
   }
 
+  /// Rendered width of the first [length] code units of [painter]'s
+  /// single-line text, read from the caret position: measured from the left
+  /// edge for LTR and from the right edge for RTL. A caret lookup is cheap,
+  /// unlike summing `getBoxesForSelection(0, length)`, which costs O(length)
+  /// per call on a long paragraph.
+  double _prefixWidth(TextPainter painter, int length) {
+    if (length <= 0) return 0;
+    final caretX =
+        painter.getOffsetForCaret(TextPosition(offset: length), Rect.zero).dx;
+    return painter.textDirection == ui.TextDirection.rtl
+        ? painter.width - caretX
+        : caretX;
+  }
+
+  /// The longest prefix of [text] (laid out single-line in [painter]) whose
+  /// rendered width is at most [maxWidth].
+  ///
+  /// `getPositionForOffset(Offset(maxWidth, 0))` alone is not enough: it
+  /// returns the *nearest* caret, up to half a glyph past [maxWidth], and in
+  /// an RTL painter `x = maxWidth` from the left is the logical end of the
+  /// text, not its start. The probe is mirrored for RTL and the result is
+  /// corrected against measured prefix widths.
+  int _fitPrefixLength(TextPainter painter, String text, double maxWidth) {
+    const epsilon = 0.01;
+    final rtl = painter.textDirection == ui.TextDirection.rtl;
+    final probeX = rtl ? painter.width - maxWidth : maxWidth;
+    var fit = painter
+        .getPositionForOffset(Offset(probeX, 0))
+        .offset
+        .clamp(0, text.length);
+    while (fit > 0 && _prefixWidth(painter, fit) > maxWidth + epsilon) {
+      fit--;
+    }
+    while (fit < text.length &&
+        _prefixWidth(painter, fit + 1) <= maxWidth + epsilon) {
+      fit++;
+    }
+    return fit;
+  }
+
+  /// Whether the first unbreakable unit of [fragment] (its first word, or its
+  /// first character where any character boundary may break) fits in [width].
+  bool _leadingUnitFits(Fragment fragment, double width) {
+    final text = fragment.text!;
+    final painter = _getTextPainter(text, fragment.style);
+    final fit = _fitPrefixLength(painter, text, width);
+    if (fit <= 0) return false;
+    if (fragment.style.wordBreak == 'break-all' ||
+        KinsokuProcessor.containsCjk(text)) {
+      return true;
+    }
+    var wordStart = 0;
+    while (wordStart < text.length && text[wordStart] == ' ') {
+      wordStart++;
+    }
+    final space = text.indexOf(' ', wordStart);
+    return (space < 0 ? text.length : space) <= fit;
+  }
+
+  /// Checks if the leading run of [text] starting at [start] contains CJK characters.
+  bool _isLeadingCjk(String text, [int start = 0]) {
+    final limit = math.min(text.length, start + 32);
+    for (int i = start; i < limit; i++) {
+      if (KinsokuProcessor.isCjkCodeUnit(text.codeUnitAt(i))) return true;
+    }
+    return false;
+  }
+
+  /// Calculates the maximum number of characters that could possibly fit
+  /// within [maxWidth] given [style]. Bounded prefixes prevent O(N^2)
+  /// text shaping overhead on massive paragraphs (e.g. Gutenberg EPUBs).
+  int _safeCandidateCharLimit(double maxWidth, ComputedStyle style,
+      {bool isCjk = false}) {
+    final effectiveWidth = maxWidth > 0 ? maxWidth : 1.0;
+    final fontSize = style.fontSize > 0 ? style.fontSize : 16.0;
+    if (isCjk) {
+      // In CJK, fullwidth characters are 1.0 * fontSize wide. Bounding to
+      // (effectiveWidth / (fontSize * 0.75)).ceil() + 16 provides ample margin
+      // (~80-85 chars at 800px) while avoiding over-shaping 116+ chars per line.
+      return (effectiveWidth / (fontSize * 0.75)).ceil() + 16;
+    }
+    return (effectiveWidth / (fontSize * 0.25)).ceil() + 64;
+  }
+
+  /// Reusable TextPainter for layout candidate prefixes, avoiding allocating
+  /// transient objects or thrashing the global [_textPainters] cache.
+  TextPainter _getCandidatePainter(
+    String text,
+    ComputedStyle style, {
+    TextStyle? preMergedStyle,
+    StrutStyle? preStrutStyle,
+  }) {
+    final fragmentDirection =
+        style.isRtl ? ui.TextDirection.rtl : textDirection;
+    final mergedStyle = preMergedStyle ?? _baseStyle.merge(style.toTextStyle());
+    final strutStyle = preStrutStyle ??
+        StrutStyle.fromTextStyle(mergedStyle, forceStrutHeight: false);
+    final isPreformatted = _isPreformattedWhiteSpace(style.whiteSpace);
+    final maxLines = isPreformatted ? null : 1;
+
+    final painter = _scratchCandidatePainter ??= TextPainter();
+    painter
+      ..text = TextSpan(text: text, style: mergedStyle)
+      ..strutStyle = strutStyle
+      ..textDirection = fragmentDirection
+      ..textScaler = _textScaler
+      ..maxLines = maxLines
+      ..textHeightBehavior = const TextHeightBehavior(
+        applyHeightToFirstAscent: true,
+        applyHeightToLastDescent: true,
+      )
+      ..layout();
+    if (kDebugMode) {
+      HyperRenderDebugHooks.onTextPainterLayout?.call();
+      HyperRenderDebugHooks.onLineLayoutTextPainter?.call();
+    }
+    return painter;
+  }
+
   (Fragment, Fragment)? _splitTextFragment(Fragment fragment, double maxWidth) {
     final text = fragment.text!;
     if (text.isEmpty) return null;
 
-    final painter = _getTextPainter(text, fragment.style);
-    final position = painter.getPositionForOffset(Offset(maxWidth, 0));
-    int breakIndex = position.offset;
+    final isCjk = _isLeadingCjk(text);
+    final safeLimit =
+        _safeCandidateCharLimit(maxWidth, fragment.style, isCjk: isCjk);
+    final isCandidate = text.length > safeLimit;
+    final candidateText = isCandidate ? text.substring(0, safeLimit) : text;
 
-    if (breakIndex > 0 && breakIndex < text.length) {
+    final painter = isCandidate
+        ? _getCandidatePainter(candidateText, fragment.style)
+        : _getTextPainter(candidateText, fragment.style);
+    final fitIndex = _fitPrefixLength(painter, candidateText, maxWidth);
+    int breakIndex = fitIndex;
+
+    if (breakIndex > 0 && breakIndex < candidateText.length) {
       final style = fragment.style;
       final bool breakAll = style.wordBreak == 'break-all';
       final bool overflowWrap = style.overflowWrap == 'break-word' ||
@@ -1518,29 +1860,30 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       if (breakAll) {
         // word-break: break-all -> Break at any character
       } else {
-        final beforeBreak = text.substring(0, breakIndex);
-        final lastSpace = beforeBreak.lastIndexOf(' ');
+        // Search from breakIndex inclusive: a space right after the fitting
+        // prefix means the whole word before it fits.
+        final lastSpace = candidateText.lastIndexOf(' ', breakIndex);
 
         if (lastSpace > 0) {
           // Found a space before break point - use it
           breakIndex = lastSpace + 1;
-        } else if (KinsokuProcessor.containsCjk(text)) {
+        } else if (KinsokuProcessor.containsCjk(candidateText)) {
           // Text contains CJK - check if break position is within CJK context
-          final isCjkBreak = _isBreakInCjkContext(text, breakIndex);
+          final isCjkBreak = _isBreakInCjkContext(candidateText, breakIndex);
 
           if (isCjkBreak) {
             // Break is in CJK region - apply Kinsoku rules
-            breakIndex = KinsokuProcessor.findBreakPoint(text, breakIndex);
-            if (breakIndex < 0) breakIndex = position.offset;
+            breakIndex =
+                KinsokuProcessor.findBreakPoint(candidateText, breakIndex);
+            if (breakIndex < 0) breakIndex = fitIndex;
           } else if (overflowWrap) {
             // Latin-region break with overflow-wrap -> Break at character
           } else {
             // Break is in Latin region of mixed text - treat as Latin
             // Look for next space AFTER break point to avoid breaking words
-            final afterBreak = text.substring(breakIndex);
-            final nextSpace = afterBreak.indexOf(' ');
+            final nextSpace = text.indexOf(' ', breakIndex);
 
-            if (nextSpace >= 0) {
+            if (nextSpace >= 0 || candidateText.length < text.length) {
               // Found space after - but this means moving more to next line
               return null;
             }
@@ -1552,10 +1895,9 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
         } else {
           // Pure Latin text without space before break point
           // Look for next space AFTER break point to avoid breaking words
-          final afterBreak = text.substring(breakIndex);
-          final nextSpace = afterBreak.indexOf(' ');
+          final nextSpace = text.indexOf(' ', breakIndex);
 
-          if (nextSpace >= 0) {
+          if (nextSpace >= 0 || candidateText.length < text.length) {
             // Found space after - but this means moving more to next line
             // Return null to signal "can't fit any complete word on this line"
             // The caller should start a new line and try again
@@ -1574,8 +1916,8 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
 
     // Ensure breakIndex aligns with grapheme cluster boundaries.
     // This prevents splitting emojis (even with ZWJ) or complex scripts.
-    if (breakIndex > 0 && breakIndex < text.length) {
-      final range = text.characters.iterator;
+    if (breakIndex > 0 && breakIndex < candidateText.length) {
+      final range = candidateText.characters.iterator;
       int currentOffset = 0;
       while (range.moveNext()) {
         int nextOffset = currentOffset + range.current.length;
@@ -1593,9 +1935,7 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     // Only trim spaces for normal/nowrap/pre-line modes
     // For pre/pre-wrap/break-spaces, preserve all whitespace
     final whiteSpace = fragment.style.whiteSpace;
-    final shouldTrim = (whiteSpace != 'pre' &&
-        whiteSpace != 'pre-wrap' &&
-        whiteSpace != 'break-spaces');
+    final shouldTrim = !_isPreformattedWhiteSpace(whiteSpace);
 
     final firstPart = shouldTrim
         ? text.substring(0, breakIndex).trimRight()
@@ -1613,7 +1953,15 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       style: fragment.style,
       characterOffset: fragment.characterOffset,
     )..globalOffset = fragment.globalOffset;
-    _measureFragment(firstFragment);
+
+    if (firstPart.length == breakIndex) {
+      final w = _prefixWidth(painter, breakIndex);
+      firstFragment.measuredSize = Size(w, painter.height);
+      firstFragment.baseline =
+          painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    } else {
+      _measureFragment(firstFragment);
+    }
 
     // characterOffset points to the START of secondPart in the document.
     // We use `breakIndex` (not `breakIndex + trimmedLeading`) so that trimmed
@@ -1625,7 +1973,19 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       style: fragment.style,
       characterOffset: fragment.characterOffset + breakIndex,
     )..globalOffset = fragment.globalOffset + breakIndex;
-    _measureFragment(secondFragment);
+
+    // Optimization: If secondPart is far longer than could fit on ANY line in
+    // this container, skip expensive HarfBuzz layout and assign an estimated size.
+    // Container width _maxWidth is used rather than line maxWidth to avoid
+    // erroneously assuming the tail fits on the next full-width line.
+    final safeContainerLimit =
+        _safeCandidateCharLimit(_maxWidth, fragment.style, isCjk: isCjk);
+    if (secondPart.length > safeContainerLimit) {
+      secondFragment.measuredSize = Size(double.infinity, firstFragment.height);
+      secondFragment.baseline = firstFragment.baseline;
+    } else {
+      _measureFragment(secondFragment);
+    }
 
     return (firstFragment, secondFragment);
   }
@@ -1634,6 +1994,8 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     if (fragment.type == FragmentType.text && fragment.text != null) {
       final painter = _getTextPainter(fragment.text!, fragment.style);
       fragment.measuredSize = Size(painter.width, painter.height);
+      fragment.baseline =
+          painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
     }
   }
 
@@ -1645,70 +2007,70 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
     final text = fragment.text!;
     if (text.length <= 1) return null;
 
-    // First, try to find a word boundary that fits
-    int breakIndex = -1;
-
-    // Find all space positions
-    final spaceIndices = <int>[];
-    for (int i = 0; i < text.length; i++) {
-      if (text[i] == ' ') {
-        spaceIndices.add(i);
-      }
-    }
-
-    // Use the full-text painter + getPositionForOffset to find where maxWidth
-    // cuts off the text, then snap back to the nearest space boundary.
-    // This is O(1) painter calls instead of O(words) substring painters.
-    if (spaceIndices.isNotEmpty) {
-      final painter = _getTextPainter(text, fragment.style);
-      final charPos = painter.getPositionForOffset(Offset(maxWidth, 0)).offset;
-      // Find the rightmost space that is at or before the cut position
-      int lo = 0, hi = spaceIndices.length - 1;
-      while (lo <= hi) {
-        final mid = (lo + hi) >> 1;
-        if (spaceIndices[mid] < charPos) {
-          breakIndex = spaceIndices[mid] + 1;
-          lo = mid + 1;
-        } else {
-          hi = mid - 1;
-        }
-      }
-    }
-
-    // If no word boundary fits, but overflow-wrap is enabled, or word-break: break-all
-    // then force split at character level
     final style = fragment.style;
     final bool breakAll = style.wordBreak == 'break-all';
     final bool overflowWrap =
         style.overflowWrap == 'break-word' || style.overflowWrap == 'anywhere';
 
+    final isCjk = _isLeadingCjk(text);
+    final safeLimit = _safeCandidateCharLimit(maxWidth, style, isCjk: isCjk);
+    final isCandidate = text.length > safeLimit;
+    final candidateText = isCandidate ? text.substring(0, safeLimit) : text;
+
+    // Longest prefix that really fits (not the nearest caret, which can run
+    // half a glyph past maxWidth, and mirrored for RTL painters).
+    final painter = isCandidate
+        ? _getCandidatePainter(candidateText, style)
+        : _getTextPainter(candidateText, style);
+    final fitIndex = _fitPrefixLength(painter, candidateText, maxWidth);
+
+    // First, try to find a word boundary that fits. word-break: break-all
+    // fills the line by character instead.
+    int breakIndex = -1;
+    if (!breakAll) {
+      // A space at fitIndex itself still counts: the word before it fits.
+      final space = fitIndex < candidateText.length
+          ? candidateText.lastIndexOf(' ', fitIndex)
+          : candidateText.lastIndexOf(' ');
+      if (space >= 0) breakIndex = space + 1;
+    }
+
+    // If no word boundary fits, but overflow-wrap is enabled, or word-break: break-all
+    // then force split at character level
     if (breakIndex == -1 &&
-        (breakAll || overflowWrap || KinsokuProcessor.containsCjk(text))) {
-      final painter = _getTextPainter(text, fragment.style);
-      final position = painter.getPositionForOffset(Offset(maxWidth, 0));
-      breakIndex = position.offset;
+        (breakAll ||
+            overflowWrap ||
+            KinsokuProcessor.containsCjk(candidateText))) {
+      breakIndex = fitIndex;
 
       // Adjust for CJK rules if applicable
-      if (KinsokuProcessor.containsCjk(text)) {
-        final kinsokuBreak = KinsokuProcessor.findBreakPoint(text, breakIndex);
+      if (KinsokuProcessor.containsCjk(candidateText)) {
+        final kinsokuBreak =
+            KinsokuProcessor.findBreakPoint(candidateText, breakIndex);
         if (kinsokuBreak > 0) breakIndex = kinsokuBreak;
       }
     }
 
-    // Fallback: no word boundary or CJK break was found. Split at the first
-    // character to avoid dropping the fragment entirely. Single-char text
-    // cannot be split further.
-    if (breakIndex <= 0 || breakIndex >= text.length) {
-      if (text.length > 1) {
-        breakIndex = 1;
-      } else {
-        return null;
+    // Fallback: a single word wider than the whole line. Break it after as
+    // many characters as fit (as Flutter's Text does) rather than after the
+    // first character, which used to leave a column of one-letter lines.
+    if (breakIndex <= 0) breakIndex = math.max(1, fitIndex);
+    if (breakIndex >= text.length) return null;
+
+    // Collapsible spaces at the wrap hang past the line end: keep them out of
+    // the next line's start (so its glyphs keep their character offsets).
+    final ws = style.whiteSpace;
+    final shouldTrim = !_isPreformattedWhiteSpace(ws);
+    if (shouldTrim) {
+      while (breakIndex < text.length && text[breakIndex] == ' ') {
+        breakIndex++;
       }
+      if (breakIndex >= text.length) return null;
     }
 
     // Ensure breakIndex aligns with grapheme cluster boundaries.
-    if (breakIndex > 0 && breakIndex < text.length) {
-      final range = text.characters.iterator;
+    if (breakIndex > 0 && breakIndex < candidateText.length) {
+      final range = candidateText.characters.iterator;
       int currentOffset = 0;
       while (range.moveNext()) {
         int nextOffset = currentOffset + range.current.length;
@@ -1727,7 +2089,11 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       }
     }
 
-    final firstPart = text.substring(0, breakIndex);
+    // The trailing space is not part of the line's width, so text-align
+    // centers / right-aligns the visible glyphs (as _splitTextFragment does).
+    final rawFirst = text.substring(0, breakIndex);
+    final trimmedFirst = shouldTrim ? rawFirst.trimRight() : rawFirst;
+    final firstPart = trimmedFirst.isEmpty ? rawFirst : trimmedFirst;
     final secondPart = text.substring(breakIndex);
 
     final firstFragment = Fragment.text(
@@ -1736,7 +2102,15 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       style: fragment.style,
       characterOffset: fragment.characterOffset,
     )..globalOffset = fragment.globalOffset;
-    _measureFragment(firstFragment);
+
+    if (firstPart.length == breakIndex) {
+      final w = _prefixWidth(painter, breakIndex);
+      firstFragment.measuredSize = Size(w, painter.height);
+      firstFragment.baseline =
+          painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    } else {
+      _measureFragment(firstFragment);
+    }
 
     final secondFragment = Fragment.text(
       text: secondPart,
@@ -1744,7 +2118,15 @@ extension _RenderHyperBoxLayout on RenderHyperBox {
       style: fragment.style,
       characterOffset: fragment.characterOffset + breakIndex,
     )..globalOffset = fragment.globalOffset + breakIndex;
-    _measureFragment(secondFragment);
+
+    final safeContainerLimit =
+        _safeCandidateCharLimit(_maxWidth, fragment.style, isCjk: isCjk);
+    if (secondPart.length > safeContainerLimit) {
+      secondFragment.measuredSize = Size(double.infinity, firstFragment.height);
+      secondFragment.baseline = firstFragment.baseline;
+    } else {
+      _measureFragment(secondFragment);
+    }
 
     return (firstFragment, secondFragment);
   }

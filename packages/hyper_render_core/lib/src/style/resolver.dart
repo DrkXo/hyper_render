@@ -3488,6 +3488,11 @@ class StyleResolver {
     // White space - inherit if not explicitly set
     style.whiteSpace ??= parentStyle.whiteSpace;
 
+    // word-break / overflow-wrap inherit in CSS. Without this a value set on
+    // a <p> never reached its text nodes, which is where line breaking reads it.
+    style.wordBreak ??= parentStyle.wordBreak;
+    style.overflowWrap ??= parentStyle.overflowWrap;
+
     // border-collapse / border-spacing inherit in CSS (both apply only to
     // tables, but a value set on an ancestor cascades to nested tables).
     if (!style.isExplicitlySet('border-collapse')) {

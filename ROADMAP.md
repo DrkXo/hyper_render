@@ -14,6 +14,7 @@ This document outlines the architectural roadmap for **HyperRender** to become t
 | **v1.10.0** | Shipped 2026-10-02 | **DevTools v2 & Stylesheet CSS Correctness** | Timeline / Selection / live CSS-variable / snapshot DevTools tabs; stylesheet `var()`, `url()`, `calc()` and `:root` fixed. |
 | **v1.11.0** | Shipped 2026-10-04 | **Dark Mode & Root Colors** | Dark-`Theme` text default, `HyperViewer(textColor:)` / `EpubReader(textColor:)`, `body`/`html` `color`, `:root` fix, contrast guard (#20). |
 | **v1.12.0** | Shipped 2026-10-04 | **Dark-Surface Element Colors** | Links, `<h6>`, `<code>` / `<pre>`, `<mark>` keep >= 4.5:1 on dark surfaces (#23). |
+| **v1.13.0** | Shipped 2026-10-08 | **Character-Range Highlight Geometry** | `getBoxesForCharRange` / `debugLineFragments` for app-drawn highlights; ellipsis character-count fix (#26). |
 | **Next** | Unscheduled | **Native Vector Diagramming & Headless Export** | Pure Canvas/Vector Mermaid.js & GraphViz (Zero-WebView), Headless Image & PDF byte stream generator. |
 | **v2.0.0** | Q1 2027 | **Interactive Editorial & Magazine Typography** | Medium-style Text Annotation/Highlighting layer, Multi-column layout (`column-count`), Z-Index Stacking Context, Vertical Text (`writing-mode: vertical-rl`). |
 

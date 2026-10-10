@@ -1,5 +1,26 @@
 # Changelog — hyper_render_core
 
+## 1.13.0
+
+- **`RenderHyperBox.getBoxesForCharRange(charStart, charEnd)`** — bounding boxes for a character range, for app-drawn highlights (search hits, annotations, read-aloud). Offsets are the selection/IME character space, local to this `RenderHyperBox`: in virtualized / `auto` mode (>10k chars) each chunk has its own box and offsets restart at 0. Glyph x-bounds come from `TextPainter` (so they follow `textScaler` and justified spacing); y-bounds span the full line. Rects of adjacent words on a line merge, except across an inline atom such as an image. Spaces inside `white-space: pre` / `pre-wrap` / `break-spaces` are kept. By [@DrkXo](https://github.com/DrkXo) ([#26](https://github.com/brewkits/hyper_render/pull/26), follow-up to [#17](https://github.com/brewkits/hyper_render/pull/17)).
+- **`RenderHyperBox.debugLineFragments()`** — the fragments as laid out on lines, with the position actually painted, `charStart` / `charEnd`, line index / top / height, ruby text and `ellipsisVisibleLength`. `debugFragments()` reports pre-layout fragments and misses wrapped and truncated pieces.
+- **`text-overflow: ellipsis`: the truncated fragment now records how many source characters it shows.** The `ellipsisVisibleLength` was only set on the original fragment, which never reaches a line, so the `…` glyph counted as a source character.
+- **Behavior changes:** a selection highlight on truncated text no longer covers the `…` glyph, matching `getSelectedText`; and when not even one character fits before the ellipsis on an empty line, the line now shows `…` instead of nothing.
+
+- **Line-breaking fixes** (rendering changes, found while reviewing [#29](https://github.com/brewkits/hyper_render/pull/29)):
+  - **Lines no longer run past the box.** A wrap point was taken from the nearest caret rather than the last one that fits, so a line could overflow by up to half a glyph; every full CJK line did.
+  - **RTL paragraphs wrap.** The line breaker read an RTL paragraph from its logical end, putting most of it on line one and then one glyph per line.
+  - **`word-break` and `overflow-wrap` are inherited**, as in CSS. Set on a `<p>`, they never reached its text, so `word-break: break-all` had no effect.
+  - **A word wider than the line breaks after as many characters as fit** (like Flutter's `Text`), instead of after its first letter, which left a column of one-letter lines.
+  - **A word that doesn't fit beside a float moves below it** instead of being split after its first letter.
+  - **Spaces at the start and end of a line collapse**, as in CSS. A line after `<p>` + newline, after `<br>`, or after an indented `<dt>` started one space in, and trailing spaces counted toward the width that `text-align: center/right` positions.
+- **Line-breaking performance on massive unspaced text blocks** ([#28](https://github.com/brewkits/hyper_render/issues/28), [#29](https://github.com/brewkits/hyper_render/pull/29)):
+  - Single-pass native multi-line layout fast path via ICU `computeLineMetrics()` when lines are uniform and free of floats, eliminating UI freezes on long unspaced text.
+  - Bounded candidate prefix search in the fallback line breaker loop to prevent quadratic `O(N^2)` HarfBuzz text shaping overhead.
+  - Robust loop termination on zero or negative line widths and trailing whitespace margin parity.
+  - **Behavior change from the native layout:** CJK text now fills the line after a space between two sentences or runs (as a browser does), where it used to start the next run on a new line, and a first-in-document block with `text-overflow: ellipsis` now truncates instead of wrapping (it emitted no block-start fragment, so the ellipsis state was never entered).
+- **`HyperRenderDebugHooks.onTextPainterLayout` / `onLineLayoutTextPainter`** — hook callbacks for counting text shaping and line layout operations in tests and DevTools. By [@DrkXo](https://github.com/DrkXo) ([#29](https://github.com/brewkits/hyper_render/pull/29)).
+
 ## 1.12.0
 
 - **`StyleResolver.darkSurface`** (default `false`) — switches the built-in link, `<h6>`, `<code>`, `<pre><code>` and `<mark>` colors to dark-surface variants with at least 4.5:1 contrast on `#121212` ([#23](https://github.com/brewkits/hyper_render/issues/23)). `HyperViewer` sets it whenever its effective default text color is light. Author CSS still wins; an `<a>` without `href` is untouched.

@@ -1,6 +1,17 @@
 # Migration Guide
 
-> **Current version: v1.12.0**
+> **Current version: v1.13.0**
+
+## Upgrading to v1.13.0
+
+No breaking changes. New: `RenderHyperBox.getBoxesForCharRange` and `debugLineFragments` ([#26](https://github.com/brewkits/hyper_render/pull/26)). Two small `text-overflow: ellipsis` changes: selecting truncated text no longer highlights the `…` glyph, and a line where not even one character fits before the ellipsis now shows `…` instead of staying empty.
+
+**Line breaking changed in a few cases**, so wrapped text can land on different lines than in 1.12.0: lines no longer overflow the box by part of a glyph (most visible in CJK), RTL paragraphs wrap properly, `word-break` / `overflow-wrap` on a block now apply to its text, an over-long word breaks after as many characters as fit, a word that doesn't fit beside a float moves below it, lines no longer start one space in after `<br>` or an indented tag, and centered / right-aligned lines no longer count trailing spaces. If you have pixel tests of wrapped text, expect to regenerate them.
+
+```yaml
+dependencies:
+  hyper_render: ^1.13.0
+```
 
 ## Upgrading to v1.12.0
 
@@ -215,6 +226,9 @@ These APIs are stable and will remain backward-compatible in v2.0:
 ---
 
 ## Version History
+
+### v1.13.0 (October 2026)
+- `RenderHyperBox.getBoxesForCharRange` / `debugLineFragments`, ellipsis character-count fix ([#26](https://github.com/brewkits/hyper_render/pull/26))
 
 ### v1.12.0 (October 2026)
 - Dark-surface colors for links, `<h6>`, `<code>` / `<pre>` and `<mark>` ([#23](https://github.com/brewkits/hyper_render/issues/23))
