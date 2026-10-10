@@ -187,6 +187,10 @@ class RenderHyperBox extends RenderBox
   _LruCache<_TextPainterKey, TextPainter> get _textPainters =>
       _globalTextPainters;
 
+  /// Reusable TextPainter for measuring line-breaking candidate prefixes during
+  /// layout without polluting the global LRU cache.
+  TextPainter? _scratchCandidatePainter;
+
   /// Last collapsed margin (for margin collapsing between blocks)
   double _lastBlockMarginBottom = 0;
 
@@ -731,6 +735,8 @@ class RenderHyperBox extends RenderBox
     }
     _cancelBlockAnimationLoop();
     _disposeImages();
+    _scratchCandidatePainter?.dispose();
+    _scratchCandidatePainter = null;
     // Do NOT call detach() on cached semantic anchor nodes here.
     // Flutter's semantics teardown already detaches them during widget
     // unmounting — calling detach() again asserts inside SemanticsOwner
@@ -1088,6 +1094,7 @@ class RenderHyperBox extends RenderBox
 
         measurePainter.text = TextSpan(text: candidate, style: mergedStyle);
         measurePainter.layout();
+        if (kDebugMode) HyperRenderDebugHooks.onTextPainterLayout?.call();
         if (measurePainter.width > maxWidth) {
           maxWidth = measurePainter.width;
         }

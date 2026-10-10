@@ -14,6 +14,11 @@
   - **A word wider than the line breaks after as many characters as fit** (like Flutter's `Text`), instead of after its first letter, which left a column of one-letter lines.
   - **A word that doesn't fit beside a float moves below it** instead of being split after its first letter.
   - **Spaces at the start and end of a line collapse**, as in CSS. A line after `<p>` + newline, after `<br>`, or after an indented `<dt>` started one space in, and trailing spaces counted toward the width that `text-align: center/right` positions.
+- **Line-breaking performance on massive unspaced text blocks** ([#28](https://github.com/brewkits/hyper_render/issues/28), [#29](https://github.com/brewkits/hyper_render/pull/29)):
+  - Single-pass native multi-line layout fast path via ICU `computeLineMetrics()` when lines are uniform and free of floats, eliminating UI freezes on long unspaced text.
+  - Bounded candidate prefix search in the fallback line breaker loop to prevent quadratic `O(N^2)` HarfBuzz text shaping overhead.
+  - Robust loop termination on zero or negative line widths and trailing whitespace margin parity.
+- **`HyperRenderDebugHooks.onTextPainterLayout` / `onLineLayoutTextPainter`** — hook callbacks for counting text shaping and line layout operations in tests and DevTools. By [@DrkXo](https://github.com/DrkXo) ([#29](https://github.com/brewkits/hyper_render/pull/29)).
 
 ## 1.12.0
 

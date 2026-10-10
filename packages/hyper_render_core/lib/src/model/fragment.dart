@@ -66,6 +66,9 @@ class Fragment {
   /// Ruby annotation height (for proper layout)
   double? rubyHeight;
 
+  /// Distance from top of fragment to its alphabetic baseline (cached during measurement)
+  double? baseline;
+
   /// Number of leading characters from [text] that are actually visible after
   /// a CSS `text-overflow: ellipsis` truncation pass.
   ///
