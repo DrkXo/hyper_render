@@ -129,9 +129,9 @@ class VirtualizedSelectionController extends ChangeNotifier {
     final (targetChunkIndex, box) = target;
 
     final localPos = box.globalToLocal(globalPosition);
-    final localOffset = box
-        .getCharacterPositionAtOffset(localPos)
-        .clamp(0, box.totalCharacterCount);
+    final rawOffset = box.getCharacterPositionAtOffset(localPos);
+    if (rawOffset < 0) return;
+    final localOffset = rawOffset.clamp(0, box.totalCharacterCount);
 
     final newAnchor = ChunkAnchor(targetChunkIndex, localOffset);
 

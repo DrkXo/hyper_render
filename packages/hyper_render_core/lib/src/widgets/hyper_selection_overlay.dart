@@ -228,6 +228,9 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
   Rect? _endHandleRect;
   List<Rect> _selectionRects = const [];
 
+  /// Touch offset relative to the handle text anchor center during drag
+  Offset? _handleDragOffset;
+
   /// Holds the scroll position while a handle is being dragged, preventing
   /// the ancestor SingleChildScrollView / ListView from scrolling and stealing
   /// the gesture away from the handle's PanGestureRecognizer.
@@ -353,6 +356,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
       _endHandleRect = null;
       _draggingStart = false;
       _draggingEnd = false;
+      _handleDragOffset = null;
     });
     _hideMenu();
     _notifySelectionChangedIfChanged();
@@ -633,7 +637,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
 
     final Widget gestureChild = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanStart: (_) {
+      onPanStart: (details) {
         if (mounted) {
           setState(() {
             if (isStart) {
@@ -642,6 +646,16 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
               _draggingEnd = true;
             }
           });
+        }
+        final RenderBox? box =
+            _renderKey.currentContext?.findRenderObject() as RenderBox?;
+        if (box != null) {
+          final textCenterLocal =
+              Offset(isStart ? rect.left : rect.right, rect.center.dy);
+          final textCenterGlobal = box.localToGlobal(textCenterLocal);
+          _handleDragOffset = details.globalPosition - textCenterGlobal;
+        } else {
+          _handleDragOffset = null;
         }
         _focusNode.requestFocus();
         _hideMenu(); // Hide menu while dragging
@@ -658,12 +672,16 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
             _renderKey.currentContext?.findRenderObject() as RenderBox?;
         if (box == null) return;
 
-        final localPosition = box.globalToLocal(details.globalPosition);
+        final effectiveGlobal = _handleDragOffset != null
+            ? details.globalPosition - _handleDragOffset!
+            : details.globalPosition;
+        final localPosition = box.globalToLocal(effectiveGlobal);
         renderBox.updateSelectionFromHandle(isStart, localPosition);
         _updateHandlePositions();
         _autoScrollIfNearEdge(details.globalPosition);
       },
       onPanEnd: (_) {
+        _handleDragOffset = null;
         if (mounted) {
           setState(() {
             if (isStart) {
@@ -679,6 +697,7 @@ class HyperSelectionOverlayState extends State<HyperSelectionOverlay>
         }
       },
       onPanCancel: () {
+        _handleDragOffset = null;
         if (mounted) {
           setState(() {
             if (isStart) {

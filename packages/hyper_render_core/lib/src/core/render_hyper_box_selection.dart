@@ -36,6 +36,15 @@ extension RenderHyperBoxSelection on RenderHyperBox {
         return mid;
       }
     }
+    if (clampOutOfBounds) {
+      // dy fell into a vertical gap between line hi and line lo (e.g. paragraph
+      // margin, line spacing). Pick the closer line so selection does not freeze or drop.
+      if (hi < 0) return 0;
+      if (lo >= _lines.length) return _lines.length - 1;
+      final distToHi = dy - (_lines[hi].top + _lines[hi].height);
+      final distToLo = _lines[lo].top - dy;
+      return distToHi <= distToLo ? hi : lo;
+    }
     return -1;
   }
 
@@ -64,7 +73,8 @@ extension RenderHyperBoxSelection on RenderHyperBox {
     int lastOffset =
         lineIdx < _lineStartOffsets.length ? _lineStartOffsets[lineIdx] : 0;
 
-    for (final fragment in line.fragments) {
+    for (int i = 0; i < line.fragments.length; i++) {
+      final fragment = line.fragments[i];
       if ((fragment.type == FragmentType.text && fragment.text != null) ||
           fragment.type == FragmentType.ruby) {
         final text = fragment.text!;
@@ -94,11 +104,34 @@ extension RenderHyperBoxSelection on RenderHyperBox {
           return fragment.globalOffset + textPosition.offset;
         }
 
+        // dx is past fragmentRect.right. Check if there's a subsequent text fragment on this line.
+        // If dx falls in the gap between this fragment and the next text fragment,
+        // snap to the closer one.
+        final nextTextFragment = _findNextTextFragment(line.fragments, i + 1);
+        if (nextTextFragment != null) {
+          final nextLeft = nextTextFragment.offset?.dx ?? fragmentRect.right;
+          if (position.dx < (fragmentRect.right + nextLeft) / 2) {
+            return fragment.globalOffset + text.length;
+          }
+          // Otherwise, continue loop so nextTextFragment handles it.
+        }
+
         lastOffset = fragment.globalOffset + text.length;
       }
     }
     // Click was past all fragments (right margin) — return end of line.
     return lastOffset;
+  }
+
+  Fragment? _findNextTextFragment(List<Fragment> fragments, int startIndex) {
+    for (int i = startIndex; i < fragments.length; i++) {
+      final f = fragments[i];
+      if ((f.type == FragmentType.text && f.text != null) ||
+          f.type == FragmentType.ruby) {
+        return f;
+      }
+    }
+    return null;
   }
 
   /// Get selected text
@@ -252,26 +285,7 @@ extension RenderHyperBoxSelection on RenderHyperBox {
     final selectStart = math.max(0, rangeStart - fragmentStart);
     final selectEnd = math.min(fragmentLength, rangeEnd - fragmentStart);
 
-    final text = fragment.text!;
-    int visualStart = selectStart;
-    int visualEnd = selectEnd;
-    final ws = fragment.style.whiteSpace;
-    final isPreformatted =
-        ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
-    if (!isPreformatted) {
-      if (!trimBoundarySpacesOnly || fragmentStart <= rangeStart) {
-        while (visualStart < visualEnd && text[visualStart] == ' ') {
-          visualStart++;
-        }
-      }
-      if (!trimBoundarySpacesOnly || fragmentEnd >= rangeEnd) {
-        while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-          visualEnd--;
-        }
-      }
-    }
-
-    if (visualStart >= visualEnd) return const [];
+    if (selectStart >= selectEnd) return const [];
 
     final fragmentOffset = fragment.offset ?? Offset.zero;
     final useLineHeight = lineTop != null && lineHeight != null;
@@ -287,9 +301,10 @@ extension RenderHyperBoxSelection on RenderHyperBox {
       ];
     }
 
+    final text = fragment.text!;
     final painter = _getTextPainter(text, _effectiveFragmentStyle(fragment));
     final boxes = painter.getBoxesForSelection(
-      TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
+      TextSelection(baseOffset: selectStart, extentOffset: selectEnd),
       boxHeightStyle: ui.BoxHeightStyle.tight,
     );
 

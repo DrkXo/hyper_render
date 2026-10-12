@@ -592,37 +592,16 @@ extension _RenderHyperBoxPaint on RenderHyperBox {
             final selectEnd = math.min(
                 fragment.text!.length, _selection!.end - fragmentStart);
 
-            // Trim leading/trailing whitespace for visual highlight only.
-            // HTML whitespace normalization creates space chars at inline
-            // element boundaries (e.g. " は、" or "を "). These spaces are
-            // preserved in the selection range for copy-paste, but should not
-            // produce blank margin inside the painted highlight rect.
-            // Exception: preformatted content (pre/pre-wrap) where indent
-            // spaces are meaningful and must be visually highlighted.
-            final text = fragment.text!;
-            int visualStart = selectStart;
-            int visualEnd = selectEnd;
-            final ws = fragment.style.whiteSpace;
-            final isPreformatted =
-                ws == 'pre' || ws == 'pre-wrap' || ws == 'break-spaces';
-            if (!isPreformatted) {
-              while (visualStart < visualEnd && text[visualStart] == ' ') {
-                visualStart++;
-              }
-              while (visualEnd > visualStart && text[visualEnd - 1] == ' ') {
-                visualEnd--;
-              }
-            }
-
-            if (visualStart >= visualEnd) {
+            if (selectStart >= selectEnd) {
               continue;
             }
 
+            final text = fragment.text!;
             // Use getBoxesForSelection with tight height/width to get exact
             // glyph bounds — avoids blank space from line-height above/below.
             final painter = _getTextPainter(text, fragment.style);
             final boxes = painter.getBoxesForSelection(
-              TextSelection(baseOffset: visualStart, extentOffset: visualEnd),
+              TextSelection(baseOffset: selectStart, extentOffset: selectEnd),
               boxHeightStyle: ui.BoxHeightStyle.tight,
             );
 

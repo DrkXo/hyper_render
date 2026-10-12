@@ -236,6 +236,7 @@ class _VirtualizedSelectionOverlayState
   bool _showMenu = false;
   bool _draggingStart = false;
   bool _draggingEnd = false;
+  Offset? _handleDragOffset;
   ScrollHoldController? _scrollHold;
 
   @override
@@ -409,7 +410,7 @@ class _VirtualizedSelectionOverlayState
 
     final Widget gestureChild = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPanStart: (_) {
+      onPanStart: (details) {
         if (mounted) {
           setState(() {
             if (isStart) {
@@ -419,17 +420,29 @@ class _VirtualizedSelectionOverlayState
             }
           });
         }
+        final RenderBox? overlayBox = context.findRenderObject() as RenderBox?;
+        if (overlayBox != null) {
+          final textCenterInStack =
+              Offset(isStart ? rect.left : rect.right, rect.center.dy);
+          final textCenterGlobal = overlayBox.localToGlobal(textCenterInStack);
+          _handleDragOffset = details.globalPosition - textCenterGlobal;
+        } else {
+          _handleDragOffset = null;
+        }
         _dismissMenu();
         _releaseScrollHold();
         _scrollHold =
             Scrollable.maybeOf(context)?.position.hold(_releaseScrollHold);
       },
       onPanUpdate: (details) {
-        widget.controller
-            .updateSelectionFromHandle(isStart, details.globalPosition);
+        final targetGlobal = _handleDragOffset != null
+            ? details.globalPosition - _handleDragOffset!
+            : details.globalPosition;
+        widget.controller.updateSelectionFromHandle(isStart, targetGlobal);
         _autoScrollIfNearEdge(details.globalPosition);
       },
       onPanEnd: (_) {
+        _handleDragOffset = null;
         if (mounted) {
           setState(() {
             if (isStart) {
@@ -443,6 +456,7 @@ class _VirtualizedSelectionOverlayState
         if (widget.controller.hasSelection) _revealMenu();
       },
       onPanCancel: () {
+        _handleDragOffset = null;
         if (mounted) {
           setState(() {
             if (isStart) {
